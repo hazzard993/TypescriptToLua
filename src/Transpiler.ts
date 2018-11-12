@@ -545,16 +545,16 @@ export abstract class LuaTranspiler {
                 || ts.isPrefixUnaryExpression(node.incrementor))
                 && node.incrementor as ts.PostfixUnaryExpression;
             if (supportedCond && supportedIncr) { // Condition is binary, incrementor is unary
-                const isLessThan = supportedCond.operatorToken.kind === ts.SyntaxKind.LessThanToken;
-                const isLessThenEqual = supportedCond.operatorToken.kind === ts.SyntaxKind.LessThanEqualsToken;
-                const incrementPlusPlus = supportedIncr.operator === ts.SyntaxKind.PlusPlusToken;
-                if ((isLessThenEqual || isLessThan) && incrementPlusPlus) { // Condition < or <=, incrementor is ++
-                    const initializeVariableName = this.transpileIdentifier(declaration.name as ts.Identifier);
-                    const conditionVariableName = this.transpileIdentifier(supportedCond.left as ts.Identifier);
-                    const incrementVariableName = this.transpileIdentifier(supportedIncr.operand as ts.Identifier);
-                    if (initializeVariableName === conditionVariableName
-                        && initializeVariableName === incrementVariableName
-                        && initializeVariableName !== null) { // Same variable used in all positions
+                const initializeVariableName = this.transpileIdentifier(declaration.name as ts.Identifier);
+                const conditionVariableName = this.transpileIdentifier(supportedCond.left as ts.Identifier);
+                const incrementVariableName = this.transpileIdentifier(supportedIncr.operand as ts.Identifier);
+                if (initializeVariableName === conditionVariableName
+                    && initializeVariableName === incrementVariableName
+                    && initializeVariableName !== null) { // Same variable used in all positions
+                    const isLessThan = supportedCond.operatorToken.kind === ts.SyntaxKind.LessThanToken;
+                    const isLessThenEqual = supportedCond.operatorToken.kind === ts.SyntaxKind.LessThanEqualsToken;
+                    const incrementPlusPlus = supportedIncr.operator === ts.SyntaxKind.PlusPlusToken;
+                    if ((isLessThenEqual || isLessThan) && incrementPlusPlus) { // Condition < or <=, incrementor is ++
                         const value = this.transpileExpression(declaration.initializer as ts.Identifier);
                         const rhs = this.transpileExpression(supportedCond.right as ts.Identifier);
                         const minusOne = isLessThan ? "-1" : "";
