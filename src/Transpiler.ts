@@ -531,9 +531,46 @@ export abstract class LuaTranspiler {
     }
 
     public transpileFor(node: ts.ForStatement): string {
-        // Add header
         let result = "";
-        for (const variableDeclaration of (node.initializer as ts.VariableDeclarationList).declarations) {
+        const initializer = node.initializer as ts.VariableDeclarationList;
+        const declarations = initializer.declarations;
+
+        // Transform to native Lua for loop if able
+        // for (let i=0; i<10; {i++|++i}) {... -> for i=0, 10-1 do...
+        if (declarations.length === 1) { // For loop uses a single variable
+            const declaration = initializer.declarations[0];
+            const supportedCond = node.condition.kind === ts.SyntaxKind.BinaryExpression
+                && node.condition as ts.BinaryExpression;
+            const supportedIncr = (node.incrementor.kind === ts.SyntaxKind.PostfixUnaryExpression
+                || ts.isPrefixUnaryExpression(node.incrementor))
+                && node.incrementor as ts.PostfixUnaryExpression;
+            if (supportedCond && supportedIncr) { // Condition is binary, incrementor is unary
+                const isLessThan = supportedCond.operatorToken.kind === ts.SyntaxKind.LessThanToken;
+                const isLessThenEqual = supportedCond.operatorToken.kind === ts.SyntaxKind.LessThanEqualsToken;
+                const incrementPlusPlus = supportedIncr.operator === ts.SyntaxKind.PlusPlusToken;
+                if ((isLessThenEqual || isLessThan) && incrementPlusPlus) { // Condition < or <=, incrementor is ++
+                    const initializeVariableName = this.transpileIdentifier(declaration.name as ts.Identifier);
+                    const conditionVariableName = this.transpileIdentifier(supportedCond.left as ts.Identifier);
+                    const incrementVariableName = this.transpileIdentifier(supportedIncr.operand as ts.Identifier);
+                    if (initializeVariableName === conditionVariableName
+                        && initializeVariableName === incrementVariableName
+                        && initializeVariableName !== null) { // Same variable used in all positions
+                        const value = this.transpileExpression(declaration.initializer as ts.Identifier);
+                        const rhs = this.transpileExpression(supportedCond.right as ts.Identifier);
+                        const minusOne = isLessThan ? "-1" : "";
+                        result += `${this.indent}for ${initializeVariableName}=${value}, ${rhs}${minusOne} do\n`;
+                        this.pushIndent();
+                        result += this.transpileLoopBody(node);
+                        this.popIndent();
+                        result += `${this.indent}end\n`;
+                        return result;
+                    }
+                }
+            }
+        }
+
+        // Add header
+        for (const variableDeclaration of initializer.declarations) {
             result += this.indent + this.transpileVariableDeclaration(variableDeclaration) + "\n";
         }
         result += this.indent + `while(${this.transpileExpression(node.condition)}) do\n`;
