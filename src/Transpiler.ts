@@ -1136,7 +1136,7 @@ export abstract class LuaTranspiler {
         if (classDecorators.has(DecoratorKind.CustomConstructor)) {
             const customDecorator = classDecorators.get(DecoratorKind.CustomConstructor);
             if (!customDecorator.args[0]) {
-                throw TSTLErrors.InvalidDecoratorArgumentNumber("!CustomConstructor", 0, 1, node);
+                throw TSTLErrors.InvalidDecoratorArgumentNumber("@customConstructor", 0, 1, node);
             }
             return `${customDecorator.args[0]}(${this.transpileArguments(node.arguments)})`;
         }

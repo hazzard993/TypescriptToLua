@@ -113,7 +113,7 @@ export class TupleTests {
     public tupleReturnAccess(): void {
         // Transpile
         const lua = util.transpileString(
-            `/** !TupleReturn */\n
+            `/** @tupleReturn */\n
             function tuple(): [number, number, number] { return [3,5,1]; }\n
             return tuple()[2];`
         );
@@ -129,7 +129,7 @@ export class TupleTests {
     public tupleReturnDestructDeclaration(): void {
         // Transpile
         const lua = util.transpileString(
-            `/** !TupleReturn */\n
+            `/** @tupleReturn */\n
             function tuple(): [number, number, number] { return [3,5,1]; }\n
             const [a,b,c] = tuple();
             return b;`
@@ -146,7 +146,7 @@ export class TupleTests {
     public tupleReturnDestructAssignment(): void {
         // Transpile
         const lua = util.transpileString(
-            `/** !TupleReturn */\n
+            `/** @tupleReturn */\n
             function tuple(): [number, number] { return [3,6]; }\n
             const [a,b] = [1,2];
             [b,a] = tuple();
@@ -165,7 +165,7 @@ export class TupleTests {
         // Transpile
         const lua = util.transpileString(
             `class Test {\n
-                /** !TupleReturn */\n
+                /** @tupleReturn */\n
                 static tuple(): [number, number, number] { return [3,5,1]; }\n
             }\n
             const [a,b,c] = Test.tuple();
@@ -184,7 +184,7 @@ export class TupleTests {
         // Transpile
         const lua = util.transpileString(
             `class Test {\n
-                /** !TupleReturn */\n
+                /** @tupleReturn */\n
                 tuple(): [number, number, number] { return [3,5,1]; }\n
             }\n
             const t = new Test();

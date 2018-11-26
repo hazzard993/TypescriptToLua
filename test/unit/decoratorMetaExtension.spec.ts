@@ -14,7 +14,7 @@ export class DecoratorMetaExtension {
             declare namespace debug {
                 function getregistry(): any;
             }
-            /** !MetaExtension */
+            /** @metaExtension */
             class LoadedExt extends _LOADED {
                 public static test() {
                     return 5;
@@ -33,7 +33,7 @@ export class DecoratorMetaExtension {
         Expect(() => {
             util.transpileString(
                 `
-                /** !MetaExtension */
+                /** @metaExtension */
                 class LoadedExt {
                     public static test() {
                         return 5;
@@ -42,7 +42,7 @@ export class DecoratorMetaExtension {
                 `
             );
         }).toThrowError(TranspileError,
-                        "!MetaExtension requires the extension of the metatable class.");
+                        "@metaExtension requires the extension of the metatable class.");
     }
 
     @Test("DontAllowInstantiation")
@@ -51,13 +51,13 @@ export class DecoratorMetaExtension {
             util.transpileString(
                 `
                 declare class _LOADED;
-                /** !MetaExtension */
+                /** @metaExtension */
                 class Ext extends _LOADED {
                 }
                 const e = new Ext();
                 `
             );
         }).toThrowError(TranspileError,
-                        "Cannot construct classes with decorator '!Extension' or '!MetaExtension'.");
+                        "Cannot construct classes with decorator '@extension' or '@metaExtension'.");
     }
 }

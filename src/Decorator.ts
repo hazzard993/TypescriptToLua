@@ -1,24 +1,32 @@
+import { JSDocTagInfo } from "typescript";
+
 export class Decorator {
+    public static fromJSDocTag(tag: JSDocTagInfo): Decorator {
+        const upName = tag.name.charAt(0).toUpperCase() + tag.name.slice(1);
+        const kind = DecoratorKind[upName];
+        return kind !== undefined ? new Decorator(kind, tag) : null;
+    }
+
     public kind: DecoratorKind;
     public args: string[];
 
-    constructor(raw: string) {
-        let nameEnd = raw.indexOf(" ");
-        if (nameEnd === -1) {
-            nameEnd = raw.length;
+    private constructor(kind: DecoratorKind, tag: JSDocTagInfo) {
+        this.kind = kind;
+        this.args = [];
+        const words = tag.text && tag.text.split(" ");
+        if (words && words.length > 0) {
+            this.args.push(...words);
         }
-        this.kind = DecoratorKind[raw.substring(1, nameEnd)];
-        this.args = raw.split(" ").slice(1);
     }
 }
 
 export enum DecoratorKind {
-    Extension = "Extension",
-    MetaExtension = "MetaExtension",
-    CustomConstructor = "CustomConstructor",
-    CompileMembersOnly = "CompileMembersOnly",
-    PureAbstract = "PureAbstract",
-    Phantom = "Phantom",
-    TupleReturn = "TupleReturn",
-    NoClassOr = "NoClassOr",
+    Extension,
+    MetaExtension,
+    CustomConstructor,
+    CompileMembersOnly,
+    PureAbstract,
+    Phantom,
+    TupleReturn,
+    NoClassOr,
 }

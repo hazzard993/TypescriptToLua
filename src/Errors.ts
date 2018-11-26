@@ -32,10 +32,10 @@ export class TSTLErrors {
         new TranspileError(`${name} expects ${expected} argument(s) but got ${got}.`, node)
 
     public static InvalidExtensionMetaExtension = (node: ts.Node) =>
-        new TranspileError(`Cannot use both '!Extension' and '!MetaExtension' decorators on the same class.`, node)
+        new TranspileError(`Cannot use both '@extension' and '@metaExtension' decorators on the same class.`, node)
 
     public static InvalidNewExpressionOnExtension = (node: ts.Node) =>
-        new TranspileError(`Cannot construct classes with decorator '!Extension' or '!MetaExtension'.`, node)
+        new TranspileError(`Cannot construct classes with decorator '@extension' or '@metaExtension'.`, node)
 
     public static InvalidPropertyCall = (node: ts.Node) =>
         new TranspileError(`Tried to transpile a non-property call as property call.`, node)
@@ -50,7 +50,7 @@ export class TSTLErrors {
         new TranspileError(`Class declarations must have a name.`, node)
 
     public static MissingMetaExtension = (node: ts.Node) =>
-        new TranspileError(`!MetaExtension requires the extension of the metatable class.`, node)
+        new TranspileError(`@metaExtension requires the extension of the metatable class.`, node)
 
     public static UnsupportedImportType = (node: ts.Node) =>
         new TranspileError(`Unsupported import type.`, node)

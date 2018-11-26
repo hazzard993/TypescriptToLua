@@ -105,21 +105,13 @@ export class TSHelper {
     }
 
     public static getCustomDecorators(type: ts.Type, checker: ts.TypeChecker): Map<DecoratorKind, Decorator> {
-        if (type.symbol) {
-            const comments = type.symbol.getDocumentationComment(checker);
-            const decorators =
-                comments.filter(comment => comment.kind === "text")
-                        .map(comment => comment.text.trim().split("\n"))
-                        .reduce((a, b) => a.concat(b), [])
-                        .filter(comment => comment[0] === "!");
-            const decMap = new Map<DecoratorKind, Decorator>();
-            decorators.forEach(decStr => {
-                const dec = new Decorator(decStr);
-                decMap.set(dec.kind, dec);
-            });
-            return decMap;
-        }
-        return new Map<DecoratorKind, Decorator>();
+        const decMap = new Map<DecoratorKind, Decorator>();
+        const _ = type.symbol && type.symbol
+            .getJsDocTags()
+            .map(tag => Decorator.fromJSDocTag(tag))       // Convert JSDocTags to Decorators, or null
+            .filter(dec => dec)                            // Remove nulls
+            .forEach(dec => decMap.set(dec.kind, dec));    // Assign to Decorator map
+        return decMap;
     }
 
     // Search up until finding a node satisfying the callback
