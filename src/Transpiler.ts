@@ -3,8 +3,8 @@ import * as path from "path";
 import * as ts from "typescript";
 
 import { CompilerOptions } from "./CompilerOptions";
-import { DecoratorKind } from "./Decorator";
 import { TSTLErrors } from "./Errors";
+import { PragmaKind } from "./Pragma";
 import { TSHelper as tsHelper } from "./TSHelper";
 
 /* tslint:disable */
@@ -361,8 +361,8 @@ export abstract class LuaTranspiler {
             this.importCount++;
 
             const filteredElements = imports.elements.filter(e => {
-                const decorators = tsHelper.getCustomDecorators(this.checker.getTypeAtLocation(e), this.checker);
-                return !decorators.has(DecoratorKind.Extension) && !decorators.has(DecoratorKind.MetaExtension);
+                const Pragmas = tsHelper.getCustomPragmas(this.checker.getTypeAtLocation(e), this.checker);
+                return !Pragmas.has(PragmaKind.Extension) && !Pragmas.has(PragmaKind.MetaExtension);
             });
 
             if (filteredElements.length === 0) {
@@ -389,9 +389,9 @@ export abstract class LuaTranspiler {
     }
 
     public transpileNamespace(node: ts.ModuleDeclaration): string {
-        const decorators = tsHelper.getCustomDecorators(this.checker.getTypeAtLocation(node), this.checker);
+        const Pragmas = tsHelper.getCustomPragmas(this.checker.getTypeAtLocation(node), this.checker);
         // If phantom namespace just transpile the body as normal
-        if (decorators.has(DecoratorKind.Phantom) && node.body) {
+        if (Pragmas.has(PragmaKind.Phantom) && node.body) {
             return this.transpileNode(node.body);
         }
 
@@ -426,8 +426,8 @@ export abstract class LuaTranspiler {
             return "";
         }
 
-        const membersOnly = tsHelper.getCustomDecorators(type, this.checker)
-                                    .has(DecoratorKind.CompileMembersOnly);
+        const membersOnly = tsHelper.getCustomPragmas(type, this.checker)
+                                    .has(PragmaKind.CompileMembersOnly);
 
         let result = "";
 
@@ -1125,20 +1125,20 @@ export abstract class LuaTranspiler {
         const name = this.transpileExpression(node.expression);
         const params = node.arguments ? this.transpileArguments(node.arguments, ts.createTrue()) : "true";
         const type = this.checker.getTypeAtLocation(node);
-        const classDecorators = tsHelper.getCustomDecorators(type, this.checker);
+        const classPragmas = tsHelper.getCustomPragmas(type, this.checker);
 
         this.checkForLuaLibType(type);
 
-        if (classDecorators.has(DecoratorKind.Extension) || classDecorators.has(DecoratorKind.MetaExtension)) {
+        if (classPragmas.has(PragmaKind.Extension) || classPragmas.has(PragmaKind.MetaExtension)) {
             throw TSTLErrors.InvalidNewExpressionOnExtension(node);
         }
 
-        if (classDecorators.has(DecoratorKind.CustomConstructor)) {
-            const customDecorator = classDecorators.get(DecoratorKind.CustomConstructor);
-            if (!customDecorator.args[0]) {
-                throw TSTLErrors.InvalidDecoratorArgumentNumber("@customConstructor", 0, 1, node);
+        if (classPragmas.has(PragmaKind.CustomConstructor)) {
+            const customPragma = classPragmas.get(PragmaKind.CustomConstructor);
+            if (!customPragma.args[0]) {
+                throw TSTLErrors.InvalidPragmaArgumentNumber("@customConstructor", 0, 1, node);
             }
-            return `${customDecorator.args[0]}(${this.transpileArguments(node.arguments)})`;
+            return `${customPragma.args[0]}(${this.transpileArguments(node.arguments)})`;
         }
 
         return `${name}.new(${params})`;
@@ -1414,9 +1414,9 @@ export abstract class LuaTranspiler {
 
         this.checkForLuaLibType(type);
 
-        const decorators = tsHelper.getCustomDecorators(type, this.checker);
+        const Pragmas = tsHelper.getCustomPragmas(type, this.checker);
         // Do not output path for member only enums
-        if (decorators.has(DecoratorKind.CompileMembersOnly)) {
+        if (Pragmas.has(PragmaKind.CompileMembersOnly)) {
             return property;
         }
 
@@ -1711,12 +1711,12 @@ export abstract class LuaTranspiler {
             throw TSTLErrors.MissingClassName(node);
         }
 
-        const decorators = tsHelper.getCustomDecorators(this.checker.getTypeAtLocation(node), this.checker);
+        const Pragmas = tsHelper.getCustomPragmas(this.checker.getTypeAtLocation(node), this.checker);
 
         // Find out if this class is extension of existing class
-        const isExtension = decorators.has(DecoratorKind.Extension);
+        const isExtension = Pragmas.has(PragmaKind.Extension);
 
-        const isMetaExtension = decorators.has(DecoratorKind.MetaExtension);
+        const isMetaExtension = Pragmas.has(PragmaKind.MetaExtension);
 
         if (isExtension && isMetaExtension) {
             throw TSTLErrors.InvalidExtensionMetaExtension(node);
@@ -1747,7 +1747,7 @@ export abstract class LuaTranspiler {
         }
 
         if (isExtension) {
-            const extensionNameArg = decorators.get(DecoratorKind.Extension).args[0];
+            const extensionNameArg = Pragmas.get(PragmaKind.Extension).args[0];
             if (extensionNameArg) {
                 className = extensionNameArg;
             } else if (extendsType) {
@@ -1811,8 +1811,8 @@ export abstract class LuaTranspiler {
                                          extendsType: ts.Type): string {
         let noClassOr = false;
         if (extendsType) {
-            const decorators = tsHelper.getCustomDecorators(extendsType, this.checker);
-            noClassOr = decorators.has(DecoratorKind.NoClassOr);
+            const Pragmas = tsHelper.getCustomPragmas(extendsType, this.checker);
+            noClassOr = Pragmas.has(PragmaKind.NoClassOr);
         }
 
         let result = "";

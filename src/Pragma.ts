@@ -1,16 +1,16 @@
 import { JSDocTagInfo } from "typescript";
 
-export class Decorator {
-    public static fromJSDocTag(tag: JSDocTagInfo): Decorator {
+export class Pragma {
+    public static fromJSDocTag(tag: JSDocTagInfo): Pragma {
         const upName = tag.name.charAt(0).toUpperCase() + tag.name.slice(1);
-        const kind = DecoratorKind[upName];
-        return kind !== undefined ? new Decorator(kind, tag) : null;
+        const kind = PragmaKind[upName];
+        return kind !== undefined ? new Pragma(kind, tag) : null;
     }
 
-    public kind: DecoratorKind;
+    public kind: PragmaKind;
     public args: string[];
 
-    private constructor(kind: DecoratorKind, tag: JSDocTagInfo) {
+    private constructor(kind: PragmaKind, tag: JSDocTagInfo) {
         this.kind = kind;
         this.args = [];
         const words = tag.text && tag.text.split(" ");
@@ -20,7 +20,7 @@ export class Decorator {
     }
 }
 
-export enum DecoratorKind {
+export enum PragmaKind {
     Extension,
     MetaExtension,
     CustomConstructor,

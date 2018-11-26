@@ -3,7 +3,7 @@ import * as util from "../src/util";
 
 import { TranspileError } from "../../src/Errors";
 
-export class DecoratorMetaExtension {
+export class PragmaMetaExtension {
 
     @Test("MetaExtension")
     public metaExtension(): void {
@@ -58,6 +58,6 @@ export class DecoratorMetaExtension {
                 `
             );
         }).toThrowError(TranspileError,
-                        "Cannot construct classes with decorator '@extension' or '@metaExtension'.");
+                        "Cannot construct classes with pragma '@extension' or '@metaExtension'.");
     }
 }

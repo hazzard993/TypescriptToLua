@@ -1,5 +1,5 @@
 import * as ts from "typescript";
-import { Decorator, DecoratorKind } from "./Decorator";
+import { Pragma, PragmaKind } from "./Pragma";
 
 export class TSHelper {
 
@@ -33,8 +33,8 @@ export class TSHelper {
             for (const clause of node.heritageClauses) {
                 if (clause.token === ts.SyntaxKind.ExtendsKeyword) {
                     const superType = checker.getTypeAtLocation(clause.types[0]);
-                    const decorators = this.getCustomDecorators(superType, checker);
-                    if (!decorators.has(DecoratorKind.PureAbstract)) {
+                    const Pragmas = this.getCustomPragmas(superType, checker);
+                    if (!Pragmas.has(PragmaKind.PureAbstract)) {
                         return superType;
                     }
                 }
@@ -83,8 +83,8 @@ export class TSHelper {
         if (ts.isCallExpression(node)) {
             const type = checker.getTypeAtLocation(node.expression);
 
-            return this.getCustomDecorators(type, checker)
-                       .has(DecoratorKind.TupleReturn);
+            return this.getCustomPragmas(type, checker)
+                       .has(PragmaKind.TupleReturn);
         } else {
             return false;
         }
@@ -94,23 +94,23 @@ export class TSHelper {
         const declaration = this.findFirstNodeAbove(node, (n): n is ts.Node =>
             ts.isFunctionDeclaration(n) || ts.isMethodDeclaration(n));
         if (declaration) {
-            const decorators = this.getCustomDecorators(
+            const Pragmas = this.getCustomPragmas(
                 checker.getTypeAtLocation(declaration),
                 checker
             );
-            return decorators.has(DecoratorKind.TupleReturn);
+            return Pragmas.has(PragmaKind.TupleReturn);
         } else {
             return false;
         }
     }
 
-    public static getCustomDecorators(type: ts.Type, checker: ts.TypeChecker): Map<DecoratorKind, Decorator> {
-        const decMap = new Map<DecoratorKind, Decorator>();
+    public static getCustomPragmas(type: ts.Type, checker: ts.TypeChecker): Map<PragmaKind, Pragma> {
+        const decMap = new Map<PragmaKind, Pragma>();
         const _ = type.symbol && type.symbol
             .getJsDocTags()
-            .map(tag => Decorator.fromJSDocTag(tag))       // Convert JSDocTags to Decorators, or null
+            .map(tag => Pragma.fromJSDocTag(tag))       // Convert JSDocTags to Pragmas, or null
             .filter(dec => dec)                            // Remove nulls
-            .forEach(dec => decMap.set(dec.kind, dec));    // Assign to Decorator map
+            .forEach(dec => decMap.set(dec.kind, dec));    // Assign to Pragma map
         return decMap;
     }
 

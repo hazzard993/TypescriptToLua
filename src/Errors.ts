@@ -28,14 +28,14 @@ export class TSTLErrors {
     public static InvalidEnumMember = (node: ts.Node) =>
         new TranspileError(`Only numeric or string initializers allowed for enums.`, node)
 
-    public static InvalidDecoratorArgumentNumber = (name: string, got: number, expected: number, node: ts.Node) =>
+    public static InvalidPragmaArgumentNumber = (name: string, got: number, expected: number, node: ts.Node) =>
         new TranspileError(`${name} expects ${expected} argument(s) but got ${got}.`, node)
 
     public static InvalidExtensionMetaExtension = (node: ts.Node) =>
-        new TranspileError(`Cannot use both '@extension' and '@metaExtension' decorators on the same class.`, node)
+        new TranspileError(`Cannot use both '@extension' and '@metaExtension' pragmas on the same class.`, node)
 
     public static InvalidNewExpressionOnExtension = (node: ts.Node) =>
-        new TranspileError(`Cannot construct classes with decorator '@extension' or '@metaExtension'.`, node)
+        new TranspileError(`Cannot construct classes with pragma '@extension' or '@metaExtension'.`, node)
 
     public static InvalidPropertyCall = (node: ts.Node) =>
         new TranspileError(`Tried to transpile a non-property call as property call.`, node)

@@ -3,7 +3,7 @@ import * as util from "../src/util";
 
 import { TranspileError } from "../../src/Errors";
 
-export class DecoratorCustomConstructor {
+export class PragmaCustomConstructor {
 
     @Test("CustomCreate")
     public customCreate(): void {
