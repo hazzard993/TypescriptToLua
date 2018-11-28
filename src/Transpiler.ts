@@ -628,44 +628,56 @@ export abstract class LuaTranspiler {
     }
 
     public transpileTry(node: ts.TryStatement): string {
-        let result = this.indent + "do\n";
+        let result = `${this.indent}do\n`;
         this.pushIndent();
 
-        result += this.indent;
-        if (node.catchClause) {
-            result += "local __TS_try";
-            if (node.catchClause.variableDeclaration) {
-                const variableName = this.transpileIdentifier(
-                    node.catchClause.variableDeclaration.name as ts.Identifier);
-                result += ", " + variableName;
-            }
-            result += " = ";
-        }
-
-        result += "pcall(function()\n";
         this.pushIndent();
-        result += this.transpileBlock(node.tryBlock);
+        const tryBlock = this.transpileBlock(node.tryBlock);
+        const catchBlock = node.catchClause && this.transpileBlock(node.catchClause.block);
+        const catchVar = node.catchClause
+                && this.transpileIdentifier(node.catchClause.variableDeclaration.name as ts.Identifier);
+        const finallyBlock = node.finallyBlock && this.transpileBlock(node.finallyBlock);
         this.popIndent();
-        result += this.indent + "end);\n";
 
-        if (node.catchClause) {
-            result += this.indent + `if not __TS_try then\n`;
-            this.pushIndent();
-            result += this.transpileBlock(node.catchClause.block);
-            this.popIndent();
-            result += this.indent + "end\n";
+        result += `${this.indent}local function try()\n`
+                + `${tryBlock}`
+                + `${this.indent}end\n`;
+        if (catchBlock) {
+            result += `${this.indent}local function catch(${catchVar})\n`
+                    + `${catchBlock}`
+                    + `${this.indent}end\n`;
         }
+        if (finallyBlock) {
+            result += `${this.indent}local function finally()\n`
+                    + `${finallyBlock}`
+                    + `${this.indent}end\n`;
+        }
+        // 1: Securely call try block, store exec result and return values
+        // 2: Try block failed? Got a catch block? Securely execute that too
+        // 3: Got a finally block? Call it. If it errors, those errors take precedence over everything
+        // 4: Did the finally block return something? Return that right away and stop
+        // 5: Catch statement failed? Re-throw that as an error
+        // 6: Catch statement returned something? Return that right away and stop
+        // 7: Try returned something? Return that and stop
 
-        if (node.finallyBlock) {
-            result += this.indent + "do\n";
-            this.pushIndent();
-            result += this.transpileBlock(node.finallyBlock);
-            this.popIndent();
-            result += this.indent + "end\n";
-        }
+        // Errors:
+        //     When throwing an error, the error messages are chained together
+        result += `${this.indent}local __tryRet = { pcall(try) }\n`
+                + `${this.indent}local __catchRet = not table.remove(__tryRet, 1)\n`
+                + `${this.indent}        and catch\n`
+                + `${this.indent}        and { pcall(catch, __tryRet[1]) }\n`
+                + `${this.indent}local __finalRet = finally and { finally() }\n`
+                + `${this.indent}if __finalRet and #__finalRet > 0 then return unpack(__finalRet) end\n`
+                + `${this.indent}if __catchRet and not table.remove(__catchRet, 1) then\n`
+                + `${this.indent}    local msg, _ = __catchRet[1]:gsub("[%S:]+ ", "")\n`
+                + `${this.indent}    error(msg)\n`
+                + `${this.indent}elseif #__catchRet > 0 then\n`
+                + `${this.indent}    return unpack(__catchRet)\n`
+                + `${this.indent}end\n`
+                + `${this.indent}if #__tryRet > 0 then return unpack(__tryRet) end\n`;
 
         this.popIndent();
-        result += this.indent + "end\n";
+        result += `${this.indent}end\n`;
         return result;
     }
 
