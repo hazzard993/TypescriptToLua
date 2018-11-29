@@ -634,7 +634,7 @@ export abstract class LuaTranspiler {
         this.pushIndent();
         const tryBlock = this.transpileBlock(node.tryBlock);
         const catchBlock = node.catchClause && this.transpileBlock(node.catchClause.block);
-        const catchVar = node.catchClause
+        const catchVar = node.catchClause && node.catchClause.variableDeclaration
                 && this.transpileIdentifier(node.catchClause.variableDeclaration.name as ts.Identifier);
         const finallyBlock = node.finallyBlock && this.transpileBlock(node.finallyBlock);
         this.popIndent();
@@ -652,29 +652,23 @@ export abstract class LuaTranspiler {
                     + `${finallyBlock}`
                     + `${this.indent}end\n`;
         }
-        // 1: Securely call try block, store exec result and return values
-        // 2: Try block failed? Got a catch block? Securely execute that too
-        // 3: Got a finally block? Call it. If it errors, those errors take precedence over everything
-        // 4: Did the finally block return something? Return that right away and stop
-        // 5: Catch statement failed? Re-throw that as an error
-        // 6: Catch statement returned something? Return that right away and stop
-        // 7: Try returned something? Return that and stop
-
-        // Errors:
-        //     When throwing an error, the error messages are chained together
         result += `${this.indent}local __tryRet = { pcall(try) }\n`
-                + `${this.indent}local __catchRet = not table.remove(__tryRet, 1)\n`
+                + `${this.indent}local __catchRet = not __tryRet[1]\n`
                 + `${this.indent}        and catch\n`
-                + `${this.indent}        and { pcall(catch, __tryRet[1]) }\n`
+                + `${this.indent}        and { pcall(catch, __tryRet[2]) }\n`
                 + `${this.indent}local __finalRet = finally and { finally() }\n`
-                + `${this.indent}if __finalRet and #__finalRet > 0 then return unpack(__finalRet) end\n`
-                + `${this.indent}if __catchRet and not table.remove(__catchRet, 1) then\n`
-                + `${this.indent}    local msg, _ = __catchRet[1]:gsub("[%S:]+ ", "")\n`
-                + `${this.indent}    error(msg)\n`
-                + `${this.indent}elseif #__catchRet > 0 then\n`
-                + `${this.indent}    return unpack(__catchRet)\n`
+                + `${this.indent}if __finalRet and #__finalRet > 0 then return table.unpack(__finalRet) end\n`
+                + `${this.indent}if __catchRet then\n`
+                + `${this.indent}    if not table.remove(__catchRet, 1) then\n`
+                + `${this.indent}        local msg, _ = __catchRet[1]:gsub("[%S:]+ ", "")\n`
+                + `${this.indent}        error(msg)\n`
+                + `${this.indent}    elseif #__catchRet > 0 then\n`
+                + `${this.indent}        return table.unpack(__catchRet)\n`
+                + `${this.indent}    end\n`
                 + `${this.indent}end\n`
-                + `${this.indent}if #__tryRet > 0 then return unpack(__tryRet) end\n`;
+                + `${this.indent}if table.remove(__tryRet, 1) and #__tryRet > 0 then\n`
+                + `${this.indent}    return table.unpack(__tryRet)\n`
+                + `${this.indent}end\n`;
 
         this.popIndent();
         result += `${this.indent}end\n`;
