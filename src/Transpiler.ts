@@ -39,6 +39,7 @@ export enum LuaLibFeature {
     StringReplace = "StringReplace",
     StringSplit = "StringSplit",
     Ternary = "Ternary",
+    TryCatchFinally = "TryCatchFinally",
 }
 
 export enum LuaLibImportKind {
@@ -634,41 +635,32 @@ export abstract class LuaTranspiler {
         this.pushIndent();
         const tryBlock = this.transpileBlock(node.tryBlock);
         const catchBlock = node.catchClause && this.transpileBlock(node.catchClause.block);
-        const catchVar = node.catchClause && node.catchClause.variableDeclaration
+        const catchVar = node.catchClause && (node.catchClause.variableDeclaration || "")
                 && this.transpileIdentifier(node.catchClause.variableDeclaration.name as ts.Identifier);
         const finallyBlock = node.finallyBlock && this.transpileBlock(node.finallyBlock);
         this.popIndent();
 
+        let [tryFunc, catchFunc, finallyFunc] = ["nil", "nil", "nil"];
+        tryFunc = "try";
         result += `${this.indent}local function try()\n`
                 + `${tryBlock}`
                 + `${this.indent}end\n`;
         if (catchBlock) {
+            catchFunc = "catch";
             result += `${this.indent}local function catch(${catchVar})\n`
                     + `${catchBlock}`
                     + `${this.indent}end\n`;
         }
         if (finallyBlock) {
+            finallyFunc = "finally";
             result += `${this.indent}local function finally()\n`
                     + `${finallyBlock}`
                     + `${this.indent}end\n`;
         }
-        result += `${this.indent}local __tryRet = { pcall(try) }\n`
-                + `${this.indent}local __catchRet = not __tryRet[1]\n`
-                + `${this.indent}        and catch\n`
-                + `${this.indent}        and { pcall(catch, __tryRet[2]) }\n`
-                + `${this.indent}local __finalRet = finally and { finally() }\n`
-                + `${this.indent}if __finalRet and #__finalRet > 0 then return table.unpack(__finalRet) end\n`
-                + `${this.indent}if __catchRet then\n`
-                + `${this.indent}    if not table.remove(__catchRet, 1) then\n`
-                + `${this.indent}        local msg, _ = __catchRet[1]:gsub("[%S:]+ ", "")\n`
-                + `${this.indent}        error(msg)\n`
-                + `${this.indent}    elseif #__catchRet > 0 then\n`
-                + `${this.indent}        return table.unpack(__catchRet)\n`
-                + `${this.indent}    end\n`
-                + `${this.indent}end\n`
-                + `${this.indent}if table.remove(__tryRet, 1) and #__tryRet > 0 then\n`
-                + `${this.indent}    return table.unpack(__tryRet)\n`
-                + `${this.indent}end\n`;
+
+        this.importLuaLibFeature(LuaLibFeature.TryCatchFinally);
+        result += `${this.indent}local result = __TS__TryCatchFinally(${tryFunc}, ${catchFunc}, ${finallyFunc})\n`
+                + `${this.indent}if result then return result end\n`;
 
         this.popIndent();
         result += `${this.indent}end\n`;
