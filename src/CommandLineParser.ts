@@ -22,7 +22,7 @@ export const optionDeclarations: YargsOptions = {
     },
     luaTarget: {
         alias: "lt",
-        choices: ["JIT", "5.3", "5.2", "5.1"],
+        choices: ["JIT", "5.3", "5.2", "5.1", "gml"],
         default: "JIT",
         describe: "Specify Lua target version.",
         type: "string",

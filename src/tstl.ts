@@ -17,6 +17,7 @@ export {LuaTranspiler51} from "./targets/Transpiler.51";
 export {LuaTranspiler52} from "./targets/Transpiler.52";
 export {LuaTranspiler53} from "./targets/Transpiler.53";
 export {LuaTranspilerJIT} from "./targets/Transpiler.JIT";
+export {LuaTranspilerGML} from "./targets/Transpiler.GML";
 
 export {
     LuaLibFeature,

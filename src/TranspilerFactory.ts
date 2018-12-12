@@ -2,6 +2,7 @@ import { LuaTranspiler51 } from "./targets/Transpiler.51";
 import { LuaTranspiler52 } from "./targets/Transpiler.52";
 import { LuaTranspiler53 } from "./targets/Transpiler.53";
 import { LuaTranspilerJIT } from "./targets/Transpiler.JIT";
+import { LuaTranspilerGML } from "./targets/Transpiler.GML";
 
 import { LuaTarget, LuaTranspiler } from "./Transpiler";
 
@@ -23,6 +24,9 @@ export function createTranspiler(
       break;
     case LuaTarget.Lua53:
       luaTargetTranspiler = new LuaTranspiler53(checker, options, sourceFile);
+      break;
+    case LuaTarget.LuaGML:
+      luaTargetTranspiler = new LuaTranspilerGML(checker, options, sourceFile);
       break;
     default:
       luaTargetTranspiler = new LuaTranspilerJIT(checker, options, sourceFile);
