@@ -1,8 +1,8 @@
 import { LuaTranspiler51 } from "./targets/Transpiler.51";
 import { LuaTranspiler52 } from "./targets/Transpiler.52";
 import { LuaTranspiler53 } from "./targets/Transpiler.53";
-import { LuaTranspilerJIT } from "./targets/Transpiler.JIT";
 import { LuaTranspilerGML } from "./targets/Transpiler.GML";
+import { LuaTranspilerJIT } from "./targets/Transpiler.JIT";
 
 import { LuaTarget, LuaTranspiler } from "./Transpiler";
 

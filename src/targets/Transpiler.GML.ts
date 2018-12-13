@@ -1,13 +1,16 @@
+import { TSTLErrors } from "../Errors";
 import { LuaTranspiler } from "../Transpiler";
 import { TSHelper as tsHelper } from "../TSHelper";
-import { TSTLErrors } from "../Errors";
 
 import * as ts from "typescript";
 
 export class LuaTranspilerGML extends LuaTranspiler {
 
     /** @override */
-    public transpileExpression(node: ts.Node, brackets?: boolean, params?: { identifier: string, preString: string }): string {
+    public transpileExpression(
+        node: ts.Node,
+        brackets?: boolean,
+        params?: { identifier: string, preString: string }): string {
         switch (node.kind) {
             case ts.SyntaxKind.ObjectLiteralExpression:
             case ts.SyntaxKind.ArrayLiteralExpression:
@@ -28,15 +31,15 @@ export class LuaTranspilerGML extends LuaTranspiler {
      */
     public transpileReturn(node: ts.ReturnStatement): string {
         if (node.expression) {
-            let params = {
+            const params = {
                 identifier: "_",    // If an identifier is created, it will contain this name
                 preString: "",      // Contains a string that should be before the transpiled expression
-            }
+            };
             let result = `return ${this.transpileExpression(node.expression, undefined, params)};`;
             if (params.preString.length > 0) {
-                params.preString += this.indent;
+                result = `${params.preString}\n${this.indent}${result}`;
             }
-            return `${params.preString}${result}`;
+            return result;
         } else {
             return "return;";
         }
@@ -97,13 +100,11 @@ export class LuaTranspilerGML extends LuaTranspiler {
      * @override
      */
     public transpileArrayLiteral(node: ts.ArrayLiteralExpression, identifier?: string): string {
-        let array = `var ${identifier};\n`;
         let index = 0;
-        node.elements.forEach(child => {
-            array += `${this.indent}${identifier}[${index}] = ${this.transpileExpression(child)};\n`;
-            index++;
+        const lines = node.elements.map(child => {
+            return `${this.indent}${identifier}[${index++}] = ${this.transpileExpression(child)};`;
         });
-        return array;
+        return `var ${identifier};\n${lines.join("\n")}`;
     }
 
     /**
@@ -114,9 +115,9 @@ export class LuaTranspilerGML extends LuaTranspiler {
      * @override
      */
     public transpileObjectLiteral(node: ts.ObjectLiteralExpression, identifier?: string): string {
-        let result = `var ${identifier} = ds_map_create();\n`;
-        node.properties.forEach(element => {
-            let key: string, value: string;
+        const properties = node.properties.map(element => {
+            let key: string;
+            let value: string;
             if (ts.isIdentifier(element.name)) {
                 key = `"${this.transpileIdentifier(element.name)}"`;
             } else if (ts.isComputedPropertyName(element.name)) {
@@ -132,9 +133,9 @@ export class LuaTranspilerGML extends LuaTranspiler {
             } else {
                 throw TSTLErrors.UnsupportedKind("object literal element", element.kind, node);
             }
-            result += `${this.indent}${identifier}[?${key}] = ${value};\n`;
+            return `${this.indent}${identifier}[?${key}] = ${value};`;
         });
-        return result;
+        return `var ${identifier} = ds_map_create();\n${properties.join("\n")}`;
     }
 
 }
