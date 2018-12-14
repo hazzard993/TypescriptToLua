@@ -6,9 +6,7 @@ import * as ts from "typescript";
 
 export class LuaTranspilerGML extends LuaTranspiler {
 
-    public transpileSourceFileToGMLFiles(): { [filename: string]: string } {
-        return {"x": "y"};
-    }
+    public outputFiles: { [filename: string]: string } = {};
 
     /** @override */
     public transpileNode(node: ts.Node): string {
@@ -63,28 +61,46 @@ export class LuaTranspilerGML extends LuaTranspiler {
         return result;
     }
 
-    /** @override */
-    public transpileFunctionBody(parameters: ts.NodeArray<ts.ParameterDeclaration>,
+    /**
+     * Transpiles function parameters to the contents of a GML script file that works the same way.
+     * @param parameters The parameters from the AST
+     * @param body The function's body from the AST
+     * @param spreadIdentifier Unused
+     * @see transpileParameters
+     * @see transpileBlock
+     * @override
+     */
+    public transpileFunctionBody(
+        parameters: ts.NodeArray<ts.ParameterDeclaration>,
         body: ts.Block,
         spreadIdentifier: string = ""): string {
+        let result = "";
+        result += this.transpileFunctionParameters(parameters);
+        result += this.transpileBlock(body);
+        return result;
+    }
+
+    public transpileFunctionParameters(parameters: ts.NodeArray<ts.ParameterDeclaration>): string {
         let result = "";
         let index = 0;
         parameters.forEach(param => {
             const name = this.transpileIdentifier(param.name as ts.Identifier);
             if (param.initializer) {
                 const expression = this.transpileExpression(param.initializer);
+                result += `${this.indent}var ${name} = ${expression};\n`;
                 result += `${this.indent}if argument_count >= ${index}\n`;
                 result += `${this.indent}{\n`;
                 this.pushIndent();
-                result += `${this.indent}var ${name} = ${expression};\n`;
+                result += `${this.indent}${name} = argument[${index++}];\n`;
                 this.popIndent();
                 result += `${this.indent}}\n`;
             } else {
                 if (param.questionToken) {
+                    result += `${this.indent}var ${name} = undefined;\n`;
                     result += `${this.indent}if argument_count >= ${index}\n`;
                     result += `${this.indent}{\n`;
                     this.pushIndent();
-                    result += `${this.indent}var ${name} = argument[${index++}];\n`;
+                    result += `${this.indent}${name} = argument[${index++}];\n`;
                     this.popIndent();
                     result += `${this.indent}}\n`;
                 } else {
@@ -92,29 +108,6 @@ export class LuaTranspilerGML extends LuaTranspiler {
                 }
             }
         });
-        
-        // Add default parameters
-        // const defaultValueParams = parameters.filter(declaration => declaration.initializer !== undefined);
-        // result += this.transpileParameterDefaultValues(defaultValueParams);
-
-        // // Push spread operator here
-        // if (spreadIdentifier !== "") {
-        //     result += this.indent + `local ${spreadIdentifier} = { ... }\n`;
-        // }
-        result += this.transpileBlock(body);
-        return result;
-    }
-
-    /** @override */
-    public transpileParameterDefaultValues(params: ts.ParameterDeclaration[]): string {
-        let result = "";
-
-        params.filter(declaration => declaration.initializer !== undefined).forEach(declaration => {
-            const paramName = this.transpileIdentifier(declaration.name as ts.Identifier);
-            const paramValue = this.transpileExpression(declaration.initializer);
-            result += this.indent + `if ${paramName}==nil then ${paramName}=${paramValue} end\n`;
-        });
-
         return result;
     }
 
