@@ -116,6 +116,49 @@ export class LuaTranspilerGML extends LuaTranspiler {
     }
 
     /** @override */
+    public transpilePostfixUnaryExpression(node: ts.PostfixUnaryExpression): string {
+        const operand = this.transpileExpression(node.operand, true);
+        let operator: string;
+        switch (node.operator) {
+            case ts.SyntaxKind.MinusMinusToken:
+                operator = "--";
+                break;
+            case ts.SyntaxKind.PlusPlusToken:
+                operator = "++";
+                break;
+            default:
+                throw TSTLErrors.UnsupportedKind("unary postfix operator", node.operator, node);
+        }
+        return `${operand}${operator}`;
+    }
+
+    /** @override */
+    public transpilePrefixUnaryExpression(node: ts.PrefixUnaryExpression): string {
+        const operand = this.transpileExpression(node.operand, true);
+        let operator: string;
+        switch (node.operator) {
+            case ts.SyntaxKind.TildeToken:
+                operator = "~";
+                break;
+            case ts.SyntaxKind.MinusMinusToken:
+                operator = "--";
+                break;
+            case ts.SyntaxKind.ExclamationToken:
+                operator = "!";
+                break;
+            case ts.SyntaxKind.MinusToken:
+                operator = "-";
+                break;
+            case ts.SyntaxKind.PlusToken:
+                operator = "+";
+                break;
+            default:
+                throw TSTLErrors.UnsupportedKind("unary prefix operator", node.operator, node);
+        }
+        return `${operator}${operand}`;
+    }
+
+    /** @override */
     public transpileFunctionDeclaration(node: ts.FunctionDeclaration): string {
         let result = "";
 
