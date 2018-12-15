@@ -208,6 +208,7 @@ export class LuaTranspilerGML extends LuaTranspiler {
     /**
      * Transpiles the return statement to one that works in GML.
      * @param node The return statement from the AST
+     * @returns A string for the transpiled return statement. Ends with a semicolon
      * @override
      */
     public transpileReturn(node: ts.ReturnStatement): string {
