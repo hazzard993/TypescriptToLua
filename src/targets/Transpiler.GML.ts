@@ -59,6 +59,19 @@ export class LuaTranspilerGML extends LuaTranspiler {
     }
 
     /** @override */
+    public transpileWhile(node: ts.WhileStatement): string {
+        const condition = this.transpileExpression(node.expression);
+        let result = "";
+        result += `${this.indent}while ${condition}\n`;
+        result += `${this.indent}{\n`;
+        this.pushIndent();
+        result += this.transpileStatement(node.statement);
+        this.popIndent();
+        result += `${this.indent}}\n`;
+        return result;
+    }
+
+    /** @override */
     public transpileExpression(
         node: ts.Node,
         brackets?: boolean,
