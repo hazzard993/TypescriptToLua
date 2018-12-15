@@ -19,6 +19,46 @@ export class LuaTranspilerGML extends LuaTranspiler {
     }
 
     /** @override */
+    public transpileIf(node: ts.IfStatement): string {
+        let result = "";
+
+        // if ... { ...
+        const condition = this.transpileExpression(node.expression);
+        result += `${this.indent}if ${condition}\n`;
+        result += `${this.indent}{\n`;
+        this.pushIndent();
+        result += this.transpileStatement(node.thenStatement);
+        this.popIndent();
+
+        // } else if ... { ...
+        let elseStatement = node.elseStatement;
+        while (elseStatement && ts.isIfStatement(elseStatement)) {
+            const elseIfCondition = this.transpileExpression(elseStatement.expression);
+            result += `${this.indent}}\n`;
+            result += `${this.indent}else if ${elseIfCondition}\n`;
+            result += `${this.indent}{\n`;
+            this.pushIndent();
+            result += this.transpileStatement(elseStatement.thenStatement);
+            this.popIndent();
+            elseStatement = elseStatement.elseStatement;
+        }
+
+        // } else { ...
+        if (elseStatement) {
+            result += `${this.indent}}\n`;
+            result += `${this.indent}else\n`;
+            result += `${this.indent}{\n`;
+            this.pushIndent();
+            result += this.transpileStatement(elseStatement);
+            this.popIndent();
+        }
+
+        // }
+        result += `${this.indent}}\n`;
+        return result;
+    }
+
+    /** @override */
     public transpileExpression(
         node: ts.Node,
         brackets?: boolean,
@@ -85,9 +125,13 @@ export class LuaTranspilerGML extends LuaTranspiler {
         let index = 0;
         parameters.forEach(param => {
             const name = this.transpileIdentifier(param.name as ts.Identifier);
-            if (param.initializer) {
-                const expression = this.transpileExpression(param.initializer);
-                result += `${this.indent}var ${name} = ${expression};\n`;
+            if (param.initializer || param.questionToken) {
+                if (param.initializer) {
+                    const expression = this.transpileExpression(param.initializer);
+                    result += `${this.indent}var ${name} = ${expression};\n`;
+                } else if (param.questionToken) {
+                    result += `${this.indent}var ${name} = undefined;\n`;
+                }
                 result += `${this.indent}if argument_count >= ${index}\n`;
                 result += `${this.indent}{\n`;
                 this.pushIndent();
@@ -95,17 +139,7 @@ export class LuaTranspilerGML extends LuaTranspiler {
                 this.popIndent();
                 result += `${this.indent}}\n`;
             } else {
-                if (param.questionToken) {
-                    result += `${this.indent}var ${name} = undefined;\n`;
-                    result += `${this.indent}if argument_count >= ${index}\n`;
-                    result += `${this.indent}{\n`;
-                    this.pushIndent();
-                    result += `${this.indent}${name} = argument[${index++}];\n`;
-                    this.popIndent();
-                    result += `${this.indent}}\n`;
-                } else {
-                    result += `${this.indent}var ${name} = argument[${index++}];\n`;
-                }
+                result += `${this.indent}var ${name} = argument[${index++}];\n`;
             }
         });
         return result;
