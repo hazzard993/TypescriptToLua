@@ -72,6 +72,30 @@ export class LuaTranspilerGML extends LuaTranspiler {
     }
 
     /** @override */
+    public transpileFor(node: ts.ForStatement): string {
+        if (node.initializer && node.condition && node.incrementor) {
+            const declarationList = node.initializer as ts.VariableDeclarationList;
+            if (declarationList.declarations.length === 1) {
+                let result = "";
+                const initializer = this.transpileVariableDeclaration(declarationList.declarations[0]);
+                const condition = this.transpileExpression(node.condition);
+                const incrementor = this.transpileExpression(node.incrementor);
+                result += `${this.indent}for (${initializer}; ${condition}; ${incrementor})\n`;
+                result += `${this.indent}{\n`;
+                this.pushIndent();
+                result += this.transpileStatement(node.statement);
+                this.popIndent();
+                result += `${this.indent}}\n`;
+                return result;
+            } else if (declarationList.declarations.length > 1) {
+                throw TSTLErrors.UnsupportedKind("multiple for loop initializers", node.kind, node);
+            }
+        } else {
+            throw TSTLErrors.UnsupportedKind("GML needs an init., cond. and inc", node.kind, node);
+        }
+    }
+
+    /** @override */
     public transpileExpression(
         node: ts.Node,
         brackets?: boolean,
