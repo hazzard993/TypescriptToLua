@@ -96,26 +96,6 @@ export class LuaTranspilerGML extends LuaTranspiler {
     }
 
     /** @override */
-    public transpileExpression(
-        node: ts.Node,
-        brackets?: boolean,
-        params?: { identifier: string, preString: string }): string {
-        switch (node.kind) {
-            case ts.SyntaxKind.ObjectLiteralExpression:
-            case ts.SyntaxKind.ArrayLiteralExpression:
-                // These have to be declared before use
-                const expression = node as ts.Expression;
-                const declaration = ts.createVariableDeclaration(params.identifier, undefined, expression);
-                params.preString += this.transpileVariableDeclaration(declaration);
-                return params.identifier;
-            case ts.SyntaxKind.TryStatement:
-                throw TSTLErrors.UnsupportedKind("expression", node.kind, node);
-            default:
-                return super.transpileExpression(node, brackets);
-        }
-    }
-
-    /** @override */
     public transpilePostfixUnaryExpression(node: ts.PostfixUnaryExpression): string {
         const operand = this.transpileExpression(node.operand, true);
         let operator: string;
@@ -232,15 +212,18 @@ export class LuaTranspilerGML extends LuaTranspiler {
      */
     public transpileReturn(node: ts.ReturnStatement): string {
         if (node.expression) {
-            const params = {
-                identifier: "_",    // If an identifier is created, it will contain this name
-                preString: "",      // Contains a string that should be before the transpiled expression
-            };
-            let result = `return ${this.transpileExpression(node.expression, undefined, params)};`;
-            if (params.preString.length > 0) {
-                result = `${params.preString}\n${this.indent}${result}`;
+            switch (node.expression.kind) {
+                case ts.SyntaxKind.ArrayLiteralExpression:
+                case ts.SyntaxKind.ObjectLiteralExpression:
+                    let result = "";
+                    const declaration = ts.createVariableDeclaration("_", undefined, node.expression);
+                    result += this.transpileVariableDeclaration(declaration);
+                    result += `\n${this.indent}return _;`;
+                    return result;
+                default:
+                    const expression = this.transpileExpression(node.expression);
+                    return `return ${expression};`;
             }
-            return result;
         } else {
             return "return;";
         }
