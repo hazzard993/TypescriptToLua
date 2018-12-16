@@ -230,7 +230,12 @@ export class LuaTranspilerGML extends LuaTranspiler {
         }
     }
 
-    /** @override */
+    /**
+     * Transpiles the variable declaration statement to one that works in GML.
+     * @param node The variable declaration from the AST
+     * @returns A transpiled string for the variable declaration. Needs semicolon at the end
+     * @override
+     */
     public transpileVariableDeclaration(node: ts.VariableDeclaration): string {
         if (ts.isIdentifier(node.name)) {
             // Find variable identifier
@@ -254,7 +259,7 @@ export class LuaTranspilerGML extends LuaTranspiler {
                     }
                 }
             } else {
-                return `var ${identifierName};`;
+                return `var ${identifierName}`;
             }
         } else if (ts.isArrayBindingPattern(node.name)) {
             // Destructuring type
@@ -287,9 +292,9 @@ export class LuaTranspilerGML extends LuaTranspiler {
     public transpileArrayLiteral(node: ts.ArrayLiteralExpression, identifier?: string): string {
         let index = 0;
         const lines = node.elements.map(child => {
-            return `${this.indent}${identifier}[${index++}] = ${this.transpileExpression(child)};`;
+            return `${this.indent}${identifier}[${index++}] = ${this.transpileExpression(child)}`;
         });
-        return `var ${identifier};\n${lines.join("\n")}`;
+        return `var ${identifier};\n${lines.join(";\n")}`;
     }
 
     /**
