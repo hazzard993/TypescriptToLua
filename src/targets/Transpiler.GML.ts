@@ -233,7 +233,7 @@ export class LuaTranspilerGML extends LuaTranspiler {
      */
     public transpileVariableDeclaration(node: ts.VariableDeclaration): string {
         if (ts.isIdentifier(node.name)) {
-            // Find variable identifier
+            // let x = ...;
             const identifierName = this.transpileIdentifier(node.name);
             if (node.initializer) {
                 if (ts.isArrayLiteralExpression(node.initializer)) {
@@ -245,32 +245,62 @@ export class LuaTranspilerGML extends LuaTranspiler {
                     const objectLiteralExpression = node.initializer as ts.ObjectLiteralExpression;
                     return this.transpileObjectLiteral(objectLiteralExpression, identifierName);
                 } else {
-                    const value = this.transpileExpression(node.initializer);
-                    if (ts.isFunctionExpression(node.initializer) || ts.isArrowFunction(node.initializer)) {
-                        // Separate declaration and assignment for functions to allow recursion
-                        return `local ${identifierName}; ${identifierName} = ${value}`;
-                    } else {
-                        return `var ${identifierName} = ${value}`;
-                    }
+                    return `var ${identifierName} = ${this.transpileExpression(node.initializer)}`;
                 }
             } else {
                 return `var ${identifierName}`;
             }
         } else if (ts.isArrayBindingPattern(node.name)) {
-            // Destructuring type
-
-            // Disallow ellipsis destruction
-            if (node.name.elements.some(elem => !ts.isBindingElement(elem) || elem.dotDotDotToken !== undefined)) {
-                throw TSTLErrors.ForbiddenEllipsisDestruction(node);
-            }
-
-            const vars = node.name.elements.map(e => this.transpileArrayBindingElement(e)).join(",");
-
-            // Don't unpack TupleReturn decorated functions
-            if (tsHelper.isTupleReturnCall(node.initializer, this.checker)) {
-                return `local ${vars}=${this.transpileExpression(node.initializer)}`;
+            if (node.initializer) {
+                if (ts.isArrayLiteralExpression(node.initializer)) {
+                    // let [x, y] = [1, 2];
+                    let index = 0;
+                    const declarations = node.name.elements.map(element => {
+                        if (ts.isBindingElement(element) && ts.isIdentifier(element.name)) {
+                            const initializer = node.initializer as ts.ArrayLiteralExpression;
+                            const expression = this.transpileExpression(initializer.elements[index]);
+                            const identifier = this.transpileIdentifier(element.name);
+                            index++;
+                            return `${this.indent}var ${identifier} = ${expression}`;
+                        } else if (ts.isOmittedExpression(element)) {
+                            index++;
+                            return undefined;
+                        }
+                    }).filter(element => element);
+                    return declarations.join(";\n");
+                } else if (ts.isIdentifier(node.initializer)) {
+                    // let [x, y] = array;
+                    const identifier = this.transpileIdentifier(node.initializer);
+                    let index = 0;
+                    const declarations = node.name.elements.map(element => {
+                        if (ts.isBindingElement(element) && ts.isIdentifier(element.name)) {
+                            const variableIdentifier = this.transpileIdentifier(element.name);
+                            return `${this.indent}var ${variableIdentifier} = ${identifier}[${index++}]`;
+                        } else if (ts.isOmittedExpression(element)) {
+                            index++;
+                            return undefined;
+                        }
+                    }).filter(element => element);
+                    return declarations.join(";\n");
+                } else if (ts.isCallExpression(node.initializer)) {
+                    let result = "";
+                    const declaration = ts.createVariableDeclaration("_", undefined, node.initializer);
+                    result += `${this.transpileVariableDeclaration(declaration)};\n`;
+                    let index = 0;
+                    const declarations = node.name.elements.map(element => {
+                        if (ts.isBindingElement(element) && ts.isIdentifier(element.name)) {
+                            const variableIdentifier = this.transpileIdentifier(element.name);
+                            return `${this.indent}var ${variableIdentifier} = _[${index++}]`;
+                        } else if (ts.isOmittedExpression(element)) {
+                            index++;
+                            return undefined;
+                        }
+                    }).filter(element => element);
+                    result += declarations.join(";\n");
+                    return result;
+                }
             } else {
-                return `local ${vars}=${this.transpileDestructingAssignmentValue(node.initializer)}`;
+                throw TSTLErrors.UnsupportedKind("assignment initializer", node.name.kind, node);
             }
         } else {
             throw TSTLErrors.UnsupportedKind("variable declaration", node.name.kind, node);
