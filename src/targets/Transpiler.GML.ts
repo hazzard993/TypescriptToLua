@@ -213,8 +213,8 @@ export class LuaTranspilerGML extends LuaTranspiler {
                 case ts.SyntaxKind.ObjectLiteralExpression:
                     let result = "";
                     const declaration = ts.createVariableDeclaration("_", undefined, node.expression);
-                    result += this.transpileVariableDeclaration(declaration);
-                    result += `\n${this.indent}return _;`;
+                    result += `${this.transpileVariableDeclaration(declaration)};\n`;
+                    result += `${this.indent}return _;`;
                     return result;
                 default:
                     const expression = this.transpileExpression(node.expression);
@@ -318,9 +318,9 @@ export class LuaTranspilerGML extends LuaTranspiler {
             } else {
                 throw TSTLErrors.UnsupportedKind("object literal element", element.kind, node);
             }
-            return `${this.indent}${identifier}[?${key}] = ${value};`;
+            return `${this.indent}${identifier}[?${key}] = ${value}`;
         });
-        return `var ${identifier} = ds_map_create();\n${properties.join("\n")}`;
+        return `var ${identifier} = ds_map_create();\n${properties.join(";\n")}`;
     }
 
 }
