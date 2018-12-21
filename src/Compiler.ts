@@ -4,6 +4,7 @@ import * as ts from "typescript";
 
 import { parseCommandLine } from "./CommandLineParser";
 import { CompilerOptions } from "./CompilerOptions";
+import { LuaTranspilerGML } from "./targets/Transpiler.GML";
 import { LuaLibImportKind, LuaTarget } from "./Transpiler";
 
 import { createTranspiler } from "./TranspilerFactory";
@@ -100,7 +101,8 @@ function emitFilesAndReportErrors(program: ts.Program): number {
                 const rootDir = options.rootDir;
 
                 // Transpile AST
-                const lua = createTranspiler(checker, options, sourceFile).transpileSourceFile();
+                const transpiler = createTranspiler(checker, options, sourceFile);
+                const content = transpiler.transpileSourceFile();
 
                 let outPath = sourceFile.fileName;
                 if (options.outDir !== options.rootDir) {
@@ -122,8 +124,29 @@ function emitFilesAndReportErrors(program: ts.Program): number {
                     outPath = path.join(path.dirname(outPath), fileNameLua);
                 }
 
-                // Write output
-                ts.sys.writeFile(outPath, lua);
+                if (transpiler instanceof LuaTranspilerGML) {
+                    // If using the GML transpiler, output gml
+                    const folderName = path.dirname(outPath);
+                    for (const basefilename in transpiler.outputFiles) {
+                        const filename = path.join(folderName, `${basefilename}.gml`);
+                        ts.sys.writeFile(filename, transpiler.outputFiles[basefilename]);
+                    }
+                } else {
+                    // Write output
+                    // change extension or rename to outFile
+                    if (options.outFile) {
+                        if (path.isAbsolute(options.outFile)) {
+                            outPath = options.outFile;
+                        } else {
+                            // append to workingDir or outDir
+                            outPath = path.resolve(options.outDir, options.outFile);
+                        }
+                    } else {
+                        const fileNameLua = path.basename(outPath, path.extname(outPath)) + ".lua";
+                        outPath = path.join(path.dirname(outPath), fileNameLua);
+                    }
+                    ts.sys.writeFile(outPath, content);
+                }
             } catch (exception) {
                 /* istanbul ignore else: Testing else part would require to add a bug/exception to our code */
                 if (exception.node) {

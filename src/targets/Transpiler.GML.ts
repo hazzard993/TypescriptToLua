@@ -140,7 +140,7 @@ export class LuaTranspilerGML extends LuaTranspiler {
         // Build script header
         const methodName = this.transpileIdentifier(node.name);
         const [paramNames, spreadIdentifier] = this.transpileParameters(node.parameters);
-        result += `/// Usage:\t${methodName}(${paramNames.join(", ")})\n`;
+        result += `/// Usage:  ${methodName}(${paramNames.join(", ")})\n`;
 
         // Build documentation
         const type = this.checker.getTypeAtLocation(node);
@@ -153,6 +153,7 @@ export class LuaTranspilerGML extends LuaTranspiler {
         // Now the body
         if (!node.body) { return result; }
         result += this.transpileFunctionBody(node.parameters, node.body, spreadIdentifier);
+        this.outputFiles[methodName] = result;
         return result;
     }
 
