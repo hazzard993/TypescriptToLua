@@ -139,7 +139,11 @@ export class LuaTranspilerGML extends LuaTranspiler {
 
         // Build script header
         const methodName = this.transpileIdentifier(node.name);
-        const [paramNames, spreadIdentifier] = this.transpileParameters(node.parameters);
+        const parameters = ts.createNodeArray(node.parameters.filter(param => {
+            const parameter = param.name as ts.Identifier;
+            return parameter.originalKeywordKind !== ts.SyntaxKind.ThisKeyword;
+        }));
+        const [paramNames, spreadIdentifier] = this.transpileParameters(parameters);
         result += `/// Usage:  ${methodName}(${paramNames.join(", ")})\n`;
 
         // Build documentation
@@ -152,7 +156,7 @@ export class LuaTranspilerGML extends LuaTranspiler {
 
         // Now the body
         if (!node.body) { return result; }
-        result += this.transpileFunctionBody(node.parameters, node.body, spreadIdentifier);
+        result += this.transpileFunctionBody(parameters, node.body, spreadIdentifier);
         this.outputFiles[methodName] = result;
         return result;
     }
