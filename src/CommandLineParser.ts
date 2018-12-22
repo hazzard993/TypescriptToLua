@@ -32,6 +32,11 @@ export const optionDeclarations: YargsOptions = {
         describe: "Specify if a header will be added to compiled files.",
         type: "boolean",
     },
+    projectFile: {
+        default: undefined,
+        describe: "Path to a project.gmx file",
+        type: "string",
+    },
 };
 
 class CLIError extends Error {

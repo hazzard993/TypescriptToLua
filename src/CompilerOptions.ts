@@ -4,4 +4,5 @@ export interface CompilerOptions extends ts.CompilerOptions {
     addHeader?: boolean;
     luaTarget?: string;
     luaLibImport?: string;
+    projectFile?: string;
 }

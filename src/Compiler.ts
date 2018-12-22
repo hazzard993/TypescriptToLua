@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
+import * as xml2js from 'xml2js';
 
 import { parseCommandLine } from "./CommandLineParser";
 import { CompilerOptions } from "./CompilerOptions";
@@ -94,6 +95,17 @@ function emitFilesAndReportErrors(program: ts.Program): number {
         }
     }
 
+    const gmlTarget = options.luaTarget === LuaTarget.LuaGML;
+    const projectFilePath = options.projectFile && path.resolve(options.projectFile);
+    const projectFileFolder = options.projectFile && path.dirname(projectFilePath);
+    const projectFileContent = projectFilePath && fs.readFileSync(projectFilePath, "utf8");
+    let projectXml: any;
+    if (projectFileContent) {
+        xml2js.parseString(projectFileContent, (err, result) => {
+            projectXml = result;
+        });
+    }
+
     program.getSourceFiles().forEach(sourceFile => {
 
         if (!sourceFile.isDeclarationFile) {
@@ -126,9 +138,30 @@ function emitFilesAndReportErrors(program: ts.Program): number {
 
                 if (transpiler instanceof LuaTranspilerGML) {
                     // If using the GML transpiler, output gml
-                    const folderName = path.dirname(outPath);
+                    // All gml files are placed in /scripts/
+                    let outFolder: string;
+                    if (projectFileFolder) {
+                        outFolder = path.join(projectFileFolder, "scripts");
+                    } else {
+                        outFolder = path.dirname(outPath);
+                    }
                     for (const basefilename in transpiler.outputFiles) {
-                        const filename = path.join(folderName, `${basefilename}.gml`);
+                        // Get full path to where the gml file should go
+                        const filename = path.join(outFolder, `${basefilename}.gml`);
+                        if (projectXml) {
+                            // Output gml must be in subdirectories of .project.gmx
+                            if (filename.includes(projectFileFolder)) {
+                                const relPath = filename                // Full path to gml output file
+                                    .replace(projectFileFolder, "")     // Remove the project's absolute path
+                                    .replace(/^\\/, "");                // Remove \ at start
+                                // console.log(relPath);
+                                if (projectXml.assets.scripts[0].script.indexOf(relPath) === -1) {
+                                    projectXml.assets.scripts[0].script.push(relPath);
+                                }
+                            } else {
+                                throw new Error(`${filename} is not within ${projectFilePath}`);
+                            }
+                        }
                         ts.sys.writeFile(filename, transpiler.outputFiles[basefilename]);
                     }
                 } else {
@@ -164,6 +197,12 @@ function emitFilesAndReportErrors(program: ts.Program): number {
             }
         }
     });
+
+    if (gmlTarget) {
+        console.log(`${options.projectFile} updated`);
+        const xmlContent = new xml2js.Builder().buildObject(projectXml);
+        ts.sys.writeFile(projectFilePath, xmlContent);
+    }
 
     // Copy lualib to target dir
     if (options.luaLibImport === LuaLibImportKind.Require || options.luaLibImport === LuaLibImportKind.Always) {
