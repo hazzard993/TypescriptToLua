@@ -100,7 +100,7 @@ function emitFilesAndReportErrors(program: ts.Program): number {
     const projectFileFolder = options.projectFile && path.dirname(projectFilePath);
     const projectFileContent = projectFilePath && fs.readFileSync(projectFilePath, "utf8");
     const bindingFilePath = projectFileFolder && path.join(projectFileFolder, "bindings.json");
-    const bindingFileContent = bindingFilePath && JSON.parse(fs.readFileSync(bindingFilePath, "utf8"));
+    const bindingFileContent = fs.existsSync(bindingFilePath) && JSON.parse(fs.readFileSync(bindingFilePath, "utf8"));
     const bindings: string[] = [];
     let projectXml: any;
     if (projectFileContent) {
