@@ -99,6 +99,9 @@ function emitFilesAndReportErrors(program: ts.Program): number {
     const projectFilePath = options.projectFile && path.resolve(options.projectFile);
     const projectFileFolder = options.projectFile && path.dirname(projectFilePath);
     const projectFileContent = projectFilePath && fs.readFileSync(projectFilePath, "utf8");
+    const bindingFilePath = projectFileFolder && path.join(projectFileFolder, "bindings.json");
+    const bindingFileContent = bindingFilePath && JSON.parse(fs.readFileSync(bindingFilePath, "utf8"));
+    const bindings: string[] = [];
     let projectXml: any;
     if (projectFileContent) {
         xml2js.parseString(projectFileContent, (err, result) => {
@@ -146,7 +149,8 @@ function emitFilesAndReportErrors(program: ts.Program): number {
                         outFolder = path.dirname(outPath);
                     }
                     for (const basefilename in transpiler.outputFiles) {
-                        // Get full path to where the gml file should go
+                        // Get full path to where the gml file should go\
+                        bindings.push(basefilename);
                         const filename = path.join(outFolder, `${basefilename}.gml`);
                         if (projectXml) {
                             // Output gml must be in subdirectories of .project.gmx
@@ -199,7 +203,16 @@ function emitFilesAndReportErrors(program: ts.Program): number {
     });
 
     if (gmlTarget) {
+        // Remove files that had been previously outputted
+        if (bindingFileContent) {
+            bindingFileContent.forEach(file => {
+                if (bindings.indexOf(file) === -1) {
+                    fs.unlinkSync(path.join(projectFileFolder, "scripts", `${file}.gml`));
+                }
+            });
+        }
         console.log(`${options.projectFile} updated`);
+        ts.sys.writeFile(bindingFilePath, JSON.stringify(bindings));
         const xmlContent = new xml2js.Builder().buildObject(projectXml);
         ts.sys.writeFile(projectFilePath, xmlContent);
     }
