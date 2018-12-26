@@ -15,7 +15,7 @@ if ("TRAVIS" in process.env && "CI" in process.env) {
   // fixed thread count for CI
   cpuCount = 8;
 }
-const testFiles: string[] = glob.sync("./test/**/*.spec.ts");
+const testFiles: string[] = glob.sync("./test/unit/gml/*.spec.ts").concat(glob.sync("./test/translation/*.spec.ts"));
 const pool = new Pool(cpuCount);
 let jobCounter = 0;
 
