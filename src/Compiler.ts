@@ -5,7 +5,7 @@ import * as xml2js from "xml2js";
 
 import { parseCommandLine } from "./CommandLineParser";
 import { CompilerOptions } from "./CompilerOptions";
-import { LuaTranspilerGML, ObjectFile, ScriptFile, RoomFile } from "./targets/Transpiler.GML";
+import { LuaTranspilerGML, ObjectFile, RoomFile, ScriptFile } from "./targets/Transpiler.GML";
 import { LuaLibImportKind, LuaTarget } from "./Transpiler";
 
 import { GMHelper as gmHelper } from "./GMHelper";
@@ -136,57 +136,13 @@ function emitFilesAndReportErrors(program: ts.Program): number {
 
                 if (transpiler instanceof LuaTranspilerGML) {
                     transpiler.outputFiles.forEach(outputFile => {
-
-                        // Find the folder that this file should go to
-                        let outFolder = path.dirname(outPath);
                         if (projectXml) {
-                            if (outputFile instanceof ScriptFile) {
-                                outFolder = path.join(projectFileFolder, "scripts");
-                            } else if (outputFile instanceof ObjectFile) {
-                                outFolder = path.join(projectFileFolder, "objects");
-                            } else if (outputFile instanceof RoomFile) {
-                                outFolder = path.join(projectFileFolder, "rooms");
-                            }
-                            // Create a path for gml project files to use
-                            outFolder = outFolder
-                                .replace(projectFileFolder, "")
-                                .replace(/^\\/, "");
+                            const destPath = gmHelper.addResource(outputFile, projectXml, projectFileFolder);
+                            bindings.push(destPath);
+                        } else {
+                            const dest = path.join(path.dirname(outPath), outputFile.getFileName());
+                            ts.sys.writeFile(dest, outputFile.content);
                         }
-
-                        const outputFilePath = path.join(outFolder, outputFile.name);
-
-                        // Update the xml of a .project.gmx appropriately
-                        if (projectXml) {
-                            bindings.push(outputFilePath);
-                            if (outputFile instanceof ScriptFile) {
-                                if (!projectXml.assets.scripts[0].script) {
-                                    projectXml.assets.scripts[0].script = [];
-                                }
-                                if (projectXml.assets.scripts[0].script.indexOf(outputFilePath) === -1) {
-                                    projectXml.assets.scripts[0].script.push(outputFilePath);
-                                }
-                            } else if (outputFile instanceof ObjectFile) {
-                                if (!projectXml.assets.objects[0].object) {
-                                    projectXml.assets.objects[0].object = [];
-                                }
-                                const outputFileName = outputFilePath.replace(".object.gmx", "");
-                                if (projectXml.assets.objects[0].object.indexOf(outputFileName) === -1) {
-                                    projectXml.assets.objects[0].object.push(outputFileName);
-                                }
-                            } else if (outputFile instanceof RoomFile) {
-                                if (!projectXml.assets.rooms[0].room) {
-                                    projectXml.assets.rooms[0].room = [];
-                                }
-                                const outputFileName = outputFilePath.replace(".room.gmx", "");
-                                if (projectXml.assets.rooms[0].room.indexOf(outputFileName) === -1) {
-                                    projectXml.assets.rooms[0].room.push(outputFileName);
-                                }
-                            }
-                        }
-
-                        // Create the file
-                        ts.sys.writeFile(outputFilePath, outputFile.content);
-
                     });
                 } else {
                     // Write output

@@ -1,3 +1,4 @@
+import path = require("path");
 import * as xml2js from "xml2js";
 import { TSTLErrors } from "../Errors";
 import { GMXObject } from "../GMResources";
@@ -17,15 +18,60 @@ const events = {
     step: [3, 0],
 };
 
-class OutputFile {
-    constructor(public name: string, public content: string) {}
+export interface OutputFile {
+    /**
+     * The relative path to this file from the .project.gmx
+     */
+    rpath: string;
+    /**
+     * This contents of this file in plain text
+     */
+    content: string;
+    /**
+     * Returns the reference to this resource within the xml file
+     */
+    getXmlName(): string;
+    /**
+     * Returns the filename this resource should have
+     */
+    getFileName(): string;
 }
 
-export class ScriptFile extends OutputFile {}
+export class ScriptFile implements OutputFile {
+    constructor(public rpath: string, public content: string) {}
+    /** @override */
+    public getXmlName(): string {
+        return path.join("scripts", this.rpath);
+    }
+    /** @override */
+    public getFileName(): string {
+        return path.basename(this.rpath);
+    }
+}
 
-export class ObjectFile extends OutputFile {}
+export class ObjectFile implements OutputFile {
+    constructor(public rpath: string, public content: string) { }
+    /** @override */
+    public getXmlName(): string {
+        return path.join("objects", this.rpath.replace(".object.gmx", ""));
+    }
+    /** @override */
+    public getFileName(): string {
+        return path.basename(this.rpath);
+    }
+}
 
-export class RoomFile extends OutputFile {}
+export class RoomFile implements OutputFile {
+    constructor(public rpath: string, public content: string) { }
+    /** @override */
+    public getXmlName(): string {
+        return path.join("objects", this.rpath.replace(".room.gmx", ""));
+    }
+    /** @override */
+    public getFileName(): string {
+        return path.basename(this.rpath);
+    }
+}
 
 export class LuaTranspilerGML extends LuaTranspiler {
 

@@ -57,7 +57,7 @@ function BufferToTestString(b: Buffer): string {
 
 export class FileTests {
 
-    @FocusTest
+    // @FocusTest
     @TestCases(files)
     @Test("Transformation Tests")
     public transformationTests(tsFile: string, translationFile: string) {

@@ -3,6 +3,8 @@ import ts = require("typescript");
 import xml2js = require("xml2js");
 import { GmlError } from "./Errors";
 import * as gm from "./GMResources";
+import { Project } from "./GMResources";
+import { ObjectFile, OutputFile, RoomFile, ScriptFile } from "./targets/Transpiler.GML";
 
 export class GMHelper {
 
@@ -57,6 +59,38 @@ export class GMHelper {
                 throw new GmlError(`Unsupported resource directory, ${resourceParentFolder}`);
             }
         }
+    }
+
+    public static addResource(file: OutputFile, project: Project, projectDirectory: string): string {
+        const pathName = file.getXmlName();
+        let absolutePath = file.rpath;
+        if (file instanceof ScriptFile) {
+            if (!project.assets.scripts[0].script) {
+                project.assets.scripts[0].script = [];
+            }
+            if (project.assets.scripts[0].script.indexOf(pathName) === -1) {
+                project.assets.scripts[0].script.push(pathName);
+            }
+            absolutePath = path.join(projectDirectory, "scripts", file.rpath);
+        } else if (file instanceof ObjectFile) {
+            if (!project.assets.objects[0].object) {
+                project.assets.objects[0].object = [];
+            }
+            if (project.assets.objects[0].object.indexOf(pathName) === -1) {
+                project.assets.objects[0].object.push(pathName);
+            }
+            absolutePath = path.join(projectDirectory, "objects", file.rpath);
+        } else if (file instanceof RoomFile) {
+            if (!project.assets.rooms[0].room) {
+                project.assets.rooms[0].room = [];
+            }
+            if (project.assets.rooms[0].room.indexOf(pathName) === -1) {
+                project.assets.rooms[0].room.push(pathName);
+            }
+            absolutePath = path.join(projectDirectory, "rooms", file.rpath);
+        }
+        ts.sys.writeFile(absolutePath, file.content);
+        return absolutePath;
     }
 
 }
