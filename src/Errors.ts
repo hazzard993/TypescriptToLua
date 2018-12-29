@@ -10,6 +10,8 @@ export class TranspileError extends Error {
     }
 }
 
+export class GmlError extends Error {}
+
 export class TSTLErrors {
     public static DefaultImportsNotSupported = (node: ts.Node) =>
         new TranspileError(`Default Imports are not supported, please use named imports instead!`, node)
