@@ -1,12 +1,97 @@
+import * as xml2js from "xml2js";
 import { TSTLErrors } from "../Errors";
 import { LuaTranspiler } from "../Transpiler";
 import { TSHelper as tsHelper } from "../TSHelper";
 
 import * as ts from "typescript";
 
+const events = {
+    beginStep: [3, 1],
+    create: [0, 0],
+    destroy: [1, 0],
+    endStep: [3, 2],
+    step: [3, 0],
+};
+
+/**
+ * The literal name of the sprite resource
+ */
+type Sprite = number;
+
+type Flag = -1 | 0;
+
+interface Event {
+    $: {
+        eventtype: number,
+        enumb: number,
+    };
+    action: {
+        libid: 1,
+        id: 603,
+        kind: 7,
+        userelative: 0,
+        isquestion: 0,
+        useapplyto: -1,
+        exetype: 2,
+        functionname: "",
+        codestring: "",
+        whoName: "self" | "other" | object,
+        relative: 0,
+        isnot: 0,
+        arguments: {
+            argument: [
+                {
+                    kind: 1,
+                    /**
+                     * The script action's contents
+                     */
+                    string: string,
+                }
+            ],
+        },
+    };
+}
+
+interface GMXObject {
+    object: {
+        spriteName: "<undefined>" | Sprite,
+        solid: Flag,
+        visible: Flag,
+        depth: number,
+        persistent: Flag,
+        parentName: "<undefined>" | object,
+        maskName: "<undefined>" | Sprite,
+        events: {
+            event: Event[],
+        },
+        PhysicsObject: number,
+        PhysicsObjectSensor: number,
+        PhysicsObjectShape: number,
+        PhysicsObjectDensity: number,
+        PhysicsObjectRestitution: number,
+        PhysicsObjectGroup: number,
+        PhysicsObjectLinearDamping: number,
+        PhysicsObjectAngularDamping: number,
+        PhysicsObjectFriction: number,
+        PhysicsObjectAwake: Flag,
+        PhysicsObjectKinematic: Flag,
+        PhysicsShapePoints: {
+            point: string[],
+        },
+    };
+}
+
+class OutputFile {
+    constructor(public name: string, public content: string) {}
+}
+
+export class ScriptFile extends OutputFile {}
+
+export class ObjectFile extends OutputFile {}
+
 export class LuaTranspilerGML extends LuaTranspiler {
 
-    public outputFiles: { [filename: string]: string } = {};
+    public outputFiles: OutputFile[] = [];
 
     /** @override */
     public transpileNode(node: ts.Node): string {
@@ -16,6 +101,98 @@ export class LuaTranspilerGML extends LuaTranspiler {
             default:
                 return super.transpileNode(node);
         }
+    }
+
+    /** @override */
+    public transpileClass(node: ts.ClassLikeDeclarationBase, nameOverride?: string): string {
+        // tslint:disable:object-literal-sort-keys
+        const obj: GMXObject = {
+            object: {
+                spriteName: "<undefined>",
+                solid: 0,
+                visible: -1,
+                depth: 0,
+                persistent: 0,
+                parentName: "<undefined>",
+                maskName: "<undefined>",
+                events: {
+                    event: [],
+                },
+                PhysicsObject: 0,
+                PhysicsObjectSensor: 0,
+                PhysicsObjectShape: 2,
+                PhysicsObjectDensity: 0.5,
+                PhysicsObjectRestitution: 0.100000001490116,
+                PhysicsObjectGroup: 0,
+                PhysicsObjectLinearDamping: 0.100000001490116,
+                PhysicsObjectAngularDamping: 0.100000001490116,
+                PhysicsObjectFriction: 0.200000002980232,
+                PhysicsObjectAwake: -1,
+                PhysicsObjectKinematic: 0,
+                PhysicsShapePoints: {
+                    point: [],
+                },
+            },
+        };
+        const className = this.transpileIdentifier(node.name);
+        const isStatic = prop => prop.modifiers && prop.modifiers.some(m => m.kind === ts.SyntaxKind.StaticKeyword);
+        const addEventAndActionCode = (eventType: number, eventNumber: number, code: string) => {
+            obj.object.events.event.push({
+                $: {
+                    eventtype: eventType,
+                    enumb: eventNumber,
+                },
+                action: {
+                    libid: 1,
+                    id: 603,
+                    kind: 7,
+                    userelative: 0,
+                    isquestion: 0,
+                    useapplyto: -1,
+                    exetype: 2,
+                    functionname: "",
+                    codestring: "",
+                    whoName: "self",
+                    relative: 0,
+                    isnot: 0,
+                    arguments: {
+                        argument: [
+                            {
+                                kind: 1,
+                                string: code,
+                            },
+                        ],
+                    },
+                },
+            });
+        };
+        node.members.forEach(member => {
+            const isStaticMember = isStatic(member);
+            if (ts.isMethodDeclaration(member)) {
+                const methodName = this.transpileIdentifier(member.name as ts.Identifier);
+                const event = events[methodName];
+                if (event !== undefined) {
+                    const result = this.transpileBlock(member.body);
+                    addEventAndActionCode(event[0], event[1], result);
+                } else {
+                    const scriptName = `${className}_${methodName}`;
+                    const functionDeclaration = ts.createFunctionDeclaration(
+                        member.decorators,
+                        member.modifiers,
+                        member.asteriskToken,
+                        scriptName,
+                        member.typeParameters,
+                        member.parameters,
+                        member.type,
+                        member.body);
+                    return this.transpileFunctionDeclaration(functionDeclaration);
+                }
+            }
+        });
+        const contents = new xml2js.Builder().buildObject(obj);
+        const objectFile = new ObjectFile(`${className}.object.gmx`, contents);
+        this.outputFiles.push(objectFile);
+        return "";
     }
 
     /** @override */
@@ -157,7 +334,8 @@ export class LuaTranspilerGML extends LuaTranspiler {
         // Now the body
         if (!node.body) { return result; }
         result += this.transpileFunctionBody(parameters, node.body, spreadIdentifier);
-        this.outputFiles[methodName] = result;
+        const scriptFile = new ScriptFile(`${methodName}.gml`, result);
+        this.outputFiles.push(scriptFile);
         return result;
     }
 
