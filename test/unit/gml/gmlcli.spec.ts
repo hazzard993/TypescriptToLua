@@ -58,7 +58,7 @@ export class GMLCLITests {
     @TestCase("function func() {}", ["scripts\\func.gml"])
     @TestCase("function a() {} function b() {}", ["scripts\\a.gml", "scripts\\b.gml"])
     @TestCase("/** @Room */declare class Room {}class room0 extends Room {}", ["rooms\\room0.room.gmx"])
-    @TestCase("class Player {}", ["objects\\Player.object.gmx"])
+    @TestCase("/** @Object */declare class Object {}class Player extends Object {}", ["objects\\Player.object.gmx"])
     @Test("Gml files go to the project folder's script/ directory and are referenced in the project file")
     public testGmlToScriptDirectory(fileContent: string,
                                     expectedOutputFilePaths: string[]): void {

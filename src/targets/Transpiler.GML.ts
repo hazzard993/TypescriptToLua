@@ -6,7 +6,7 @@ import { LuaTranspiler } from "../Transpiler";
 import { TSHelper as tsHelper } from "../TSHelper";
 
 import * as ts from "typescript";
-import { DecoratorKind } from "../Decorator";
+import { Decorator, DecoratorKind } from "../Decorator";
 import { GMBuilder as gmBuilder } from "../GMBuilder";
 
 const events = {
@@ -107,36 +107,35 @@ export class LuaTranspilerGML extends LuaTranspiler {
                 const roomFile = new RoomFile(`${className}.room.gmx`, new xml2js.Builder().buildObject(room));
                 this.outputFiles.push(roomFile);
                 return "";
+            } else if (decorators.has(DecoratorKind.Object)) {
+                const obj = gmBuilder.newObject();
+                node.members.forEach(member => {
+                    if (ts.isMethodDeclaration(member)) {
+                        const methodName = this.transpileIdentifier(member.name as ts.Identifier);
+                        const event = events[methodName];
+                        if (event !== undefined) {
+                            const result = this.transpileBlock(member.body);
+                            obj.object.events.event.push(gmBuilder.newEvent(event[0], event[1], result));
+                        } else {
+                            const scriptName = `${className}_${methodName}`;
+                            const functionDeclaration = ts.createFunctionDeclaration(
+                                member.decorators,
+                                member.modifiers,
+                                member.asteriskToken,
+                                scriptName,
+                                member.typeParameters,
+                                member.parameters,
+                                member.type,
+                                member.body);
+                            return this.transpileFunctionDeclaration(functionDeclaration);
+                        }
+                    }
+                });
+                const contents = new xml2js.Builder().buildObject(obj);
+                const objectFile = new ObjectFile(`${className}.object.gmx`, contents);
+                this.outputFiles.push(objectFile);
             }
         }
-        const obj = gmBuilder.newObject();
-        const isStatic = prop => prop.modifiers && prop.modifiers.some(m => m.kind === ts.SyntaxKind.StaticKeyword);
-        node.members.forEach(member => {
-            const isStaticMember = isStatic(member);
-            if (ts.isMethodDeclaration(member)) {
-                const methodName = this.transpileIdentifier(member.name as ts.Identifier);
-                const event = events[methodName];
-                if (event !== undefined) {
-                    const result = this.transpileBlock(member.body);
-                    obj.object.events.event.push(gmBuilder.newEvent(event[0], event[1], result));
-                } else {
-                    const scriptName = `${className}_${methodName}`;
-                    const functionDeclaration = ts.createFunctionDeclaration(
-                        member.decorators,
-                        member.modifiers,
-                        member.asteriskToken,
-                        scriptName,
-                        member.typeParameters,
-                        member.parameters,
-                        member.type,
-                        member.body);
-                    return this.transpileFunctionDeclaration(functionDeclaration);
-                }
-            }
-        });
-        const contents = new xml2js.Builder().buildObject(obj);
-        const objectFile = new ObjectFile(`${className}.object.gmx`, contents);
-        this.outputFiles.push(objectFile);
         return "";
     }
 
