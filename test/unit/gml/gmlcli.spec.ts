@@ -1,6 +1,7 @@
 import { Expect, FocusTest, Test, TestCase, TestCases } from "alsatian";
 import { compile } from "../../../src/Compiler";
 import { CompilerOptions } from "../../../src/CompilerOptions";
+import { GMBuilder as gmBuilder } from "../../../src/GMBuilder";
 import { GMHelper as gmHelper } from "../../../src/GMHelper";
 import { LuaTarget } from "../../../src/Transpiler";
 import { TSHelper as tsHelper } from "../../../src/TSHelper";
@@ -84,7 +85,7 @@ export class GMLCLITests {
                 `,
             }),
         });
-        const project = gmHelper.newProject();
+        const project = gmBuilder.newProject();
         gmHelper.setProjectJson("Test.project.gmx", project);
         compile(["-p", "tsconfig.json"]);
         expectedOutputFilePaths.forEach(filepath => {

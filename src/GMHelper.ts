@@ -2,19 +2,9 @@ import path = require("path");
 import ts = require("typescript");
 import xml2js = require("xml2js");
 import { GmlError } from "./Errors";
-import * as gm from "./GMProject";
+import * as gm from "./GMResources";
 
 export class GMHelper {
-
-    /**
-     * Returns a new JSON object for a Project
-     * @example
-     * const json = gmHelper.newProject();
-     * setProjectJson("proj.project.gmx", json);
-     */
-    public static newProject(): gm.Project {
-        return gm.newProject();
-    }
 
     /**
      * Returns the project file's content in JSON format.

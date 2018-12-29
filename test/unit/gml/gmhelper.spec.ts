@@ -1,5 +1,6 @@
 import { Expect, FocusTest, Test, TestCase } from "alsatian";
 import mock = require("mock-fs");
+import { GMBuilder as gmBuilder } from "../../../src/GMBuilder";
 import { GMHelper as gmHelper } from "../../../src/GMHelper";
 
 const projectXML = `
@@ -38,7 +39,7 @@ export class GMHelperTests {
                           matchPaths: boolean,
                           throwsError: boolean): void {
         const path = "scripts\\test.gml";
-        const project = gmHelper.newProject();
+        const project = gmBuilder.newProject();
         if (appendToProject) {
             project.assets.scripts[0].script = [path];
         }
