@@ -1,3 +1,4 @@
+import fs = require("fs");
 import path = require("path");
 import ts = require("typescript");
 import xml2js = require("xml2js");
@@ -47,17 +48,30 @@ export class GMHelper {
         if (!ts.sys.fileExists(fullResourcePath)) {
             throw new GmlError(`File not found, ${fullResourcePath}`);
         }
+        let resourceName = relativeResourcePath;
         switch (resourceParentFolder) {
-            case "scripts": {
+            case "scripts":
                 if (!project.assets.scripts[0].script
-                    || project.assets.scripts[0].script.indexOf(relativeResourcePath) === -1) {
-                    throw new GmlError(`Resource ${relativeResourcePath} not referenced in ${projectFilePath}`);
+                    || project.assets.scripts[0].script.indexOf(resourceName) === -1) {
+                    throw new GmlError(`Resource ${resourceName} not referenced in ${projectFilePath}`);
                 }
                 break;
-            }
-            default: {
+            case "objects":
+                resourceName = resourceName.replace(".object.gmx", "");
+                if (!project.assets.objects[0].object
+                    || project.assets.objects[0].object.indexOf(resourceName) === -1) {
+                    throw new GmlError(`Resource ${resourceName} not referenced in ${projectFilePath}`);
+                }
+                break;
+            case "rooms":
+                resourceName = resourceName.replace(".room.gmx", "");
+                if (!project.assets.rooms[0].room
+                    || project.assets.rooms[0].room.indexOf(resourceName) === -1) {
+                    throw new GmlError(`Resource ${resourceName} not referenced in ${projectFilePath}`);
+                }
+                break;
+            default:
                 throw new GmlError(`Unsupported resource directory, ${resourceParentFolder}`);
-            }
         }
     }
 
@@ -91,6 +105,29 @@ export class GMHelper {
         }
         ts.sys.writeFile(absolutePath, file.content);
         return absolutePath;
+    }
+
+    public static removeResource(absolutePath: string, project: Project, projectDirectory: string): void {
+        const relativePath = absolutePath.replace(projectDirectory, "").replace(/\\/, "");
+        const folder = relativePath.split(/\\/)[0];
+        let index: number;
+        switch (folder) {
+            case "objects":
+                index = project.assets.objects[0].object.indexOf(relativePath);
+                project.assets.objects[0].object.splice(index);
+                break;
+            case "scripts":
+                index = project.assets.scripts[0].script.indexOf(relativePath);
+                project.assets.scripts[0].script.splice(index);
+                break;
+            case "rooms":
+                index = project.assets.rooms[0].room.indexOf(relativePath);
+                project.assets.rooms[0].room.splice(index);
+                break;
+            default:
+                throw new GmlError(`Unknown directory to remove resource from, ${folder}`);
+        }
+        fs.unlinkSync(absolutePath);
     }
 
 }

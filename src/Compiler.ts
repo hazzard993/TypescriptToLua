@@ -181,18 +181,9 @@ function emitFilesAndReportErrors(program: ts.Program): number {
     if (gmlTarget) {
         // Remove files that had been previously outputted
         if (bindingFileContent) {
-            bindingFileContent.forEach((relativepath: string) => {
-                const absolutePath = path.join(projectFileFolder, relativepath);
-                if (bindings.indexOf(relativepath) === -1) {
-                    const folder = relativepath.split("\\")[0];
-                    if (folder === "objects") {
-                        const index = projectXml.assets.objects[0].object.indexOf(relativepath);
-                        projectXml.assets.objects[0].object.splice(index);
-                    } else if (folder === "scripts") {
-                        const index = projectXml.assets.scripts[0].script.indexOf(relativepath);
-                        projectXml.assets.scripts[0].script.splice(index);
-                    }
-                    fs.unlinkSync(absolutePath);
+            bindingFileContent.forEach((absolutePath: string) => {
+                if (bindings.indexOf(absolutePath) === -1) {
+                    gmHelper.removeResource(absolutePath, projectXml, projectFileFolder);
                 }
             });
         }

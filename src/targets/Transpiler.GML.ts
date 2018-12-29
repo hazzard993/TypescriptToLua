@@ -65,7 +65,7 @@ export class RoomFile implements OutputFile {
     constructor(public rpath: string, public content: string) { }
     /** @override */
     public getXmlName(): string {
-        return path.join("objects", this.rpath.replace(".room.gmx", ""));
+        return path.join("rooms", this.rpath.replace(".room.gmx", ""));
     }
     /** @override */
     public getFileName(): string {

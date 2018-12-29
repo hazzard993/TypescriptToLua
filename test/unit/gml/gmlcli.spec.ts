@@ -22,15 +22,11 @@ interface RegExp {}
 interface String {}
 `;
 
-const tsAndExpectedOutputFiles = [
-    ["function test() {}", ["test.gml"]],
-    ["function func() {}", ["func.gml"]],
-    ["function a() {} function b() {}", ["a.gml", "b.gml"]],
-];
-
 export class GMLCLITests {
 
-    @TestCases(tsAndExpectedOutputFiles)
+    @TestCase("function test() {}", ["test.gml"])
+    @TestCase("function func() {}", ["func.gml"])
+    @TestCase("function a() {} function b() {}", ["a.gml", "b.gml"])
     @Test("Transpile functions to gml files in the same directory")
     public testFunctionToGml(fileContent: string,
                              expectedOutputFilePaths: string[]): void {
@@ -58,7 +54,11 @@ export class GMLCLITests {
         mock.restore();
     }
 
-    @TestCases(tsAndExpectedOutputFiles)
+    @TestCase("function test() {}", ["scripts\\test.gml"])
+    @TestCase("function func() {}", ["scripts\\func.gml"])
+    @TestCase("function a() {} function b() {}", ["scripts\\a.gml", "scripts\\b.gml"])
+    @TestCase("/** @Room */declare class Room {}class room0 extends Room {}", ["rooms\\room0.room.gmx"])
+    @TestCase("class Player {}", ["objects\\Player.object.gmx"])
     @Test("Gml files go to the project folder's script/ directory and are referenced in the project file")
     public testGmlToScriptDirectory(fileContent: string,
                                     expectedOutputFilePaths: string[]): void {
@@ -90,7 +90,7 @@ export class GMLCLITests {
         compile(["-p", "tsconfig.json"]);
         expectedOutputFilePaths.forEach(filepath => {
             Expect(() => {
-                gmHelper.validateResource(path.join("scripts", filepath), "Test.project.gmx");
+                gmHelper.validateResource(filepath, "Test.project.gmx");
             }).not.toThrow();
         });
         mock.restore();

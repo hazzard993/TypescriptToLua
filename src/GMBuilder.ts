@@ -24,6 +24,7 @@ export class GMBuilder {
                         $: {
                             name: "sound",
                         },
+                        sound: [],
                     },
                 ],
                 sprites: [
@@ -31,6 +32,7 @@ export class GMBuilder {
                         $: {
                             name: "sprites",
                         },
+                        sprite: [],
                     },
                 ],
                 backgrounds: [
@@ -38,6 +40,7 @@ export class GMBuilder {
                         $: {
                             name: "backgrounds",
                         },
+                        background: [],
                     },
                 ],
                 paths: [
@@ -45,6 +48,7 @@ export class GMBuilder {
                         $: {
                             name: "paths",
                         },
+                        path: [],
                     },
                 ],
                 scripts: [
@@ -52,6 +56,7 @@ export class GMBuilder {
                         $: {
                             name: "scripts",
                         },
+                        script: [],
                     },
                 ],
                 objects: [
@@ -59,6 +64,7 @@ export class GMBuilder {
                         $: {
                             name: "objects",
                         },
+                        object: [],
                     },
                 ],
                 rooms: [
@@ -66,6 +72,7 @@ export class GMBuilder {
                         $: {
                             name: "rooms",
                         },
+                        room: [],
                     },
                 ],
                 help: [
