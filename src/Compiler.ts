@@ -5,9 +5,10 @@ import * as xml2js from "xml2js";
 
 import { parseCommandLine } from "./CommandLineParser";
 import { CompilerOptions } from "./CompilerOptions";
-import { LuaTranspilerGML } from "./targets/Transpiler.GML";
+import { LuaTranspilerGML, ObjectFile, ScriptFile } from "./targets/Transpiler.GML";
 import { LuaLibImportKind, LuaTarget } from "./Transpiler";
 
+import { GMHelper as gmHelper } from "./GMHelper";
 import { createTranspiler } from "./TranspilerFactory";
 
 export function compile(argv: string[]): void {
@@ -98,16 +99,10 @@ function emitFilesAndReportErrors(program: ts.Program): number {
     const gmlTarget = options.luaTarget === LuaTarget.LuaGML;
     const projectFilePath = options.projectFile && path.resolve(options.projectFile);
     const projectFileFolder = options.projectFile && path.dirname(projectFilePath);
-    const projectFileContent = projectFilePath && fs.readFileSync(projectFilePath, "utf8");
+    const projectXml = projectFilePath && gmHelper.getProjectJson(projectFilePath);
     const bindingFilePath = projectFileFolder && path.join(projectFileFolder, "bindings.json");
     const bindingFileContent = fs.existsSync(bindingFilePath) && JSON.parse(fs.readFileSync(bindingFilePath, "utf8"));
     const bindings: string[] = [];
-    let projectXml: any;
-    if (projectFileContent) {
-        xml2js.parseString(projectFileContent, (err, result) => {
-            projectXml = result;
-        });
-    }
 
     program.getSourceFiles().forEach(sourceFile => {
 
@@ -140,34 +135,49 @@ function emitFilesAndReportErrors(program: ts.Program): number {
                 }
 
                 if (transpiler instanceof LuaTranspilerGML) {
-                    // If using the GML transpiler, output gml
-                    // All gml files are placed in /scripts/
-                    let outFolder: string;
-                    if (projectFileFolder) {
-                        outFolder = path.join(projectFileFolder, "scripts");
-                    } else {
-                        outFolder = path.dirname(outPath);
-                    }
-                    for (const basefilename in transpiler.outputFiles) {
-                        // Get full path to where the gml file should go\
-                        bindings.push(basefilename);
-                        const filename = path.join(outFolder, `${basefilename}.gml`);
+                    transpiler.outputFiles.forEach(outputFile => {
+
+                        // Find the folder that this file should go to
+                        let outFolder = path.dirname(outPath);
                         if (projectXml) {
-                            // Output gml must be in subdirectories of .project.gmx
-                            if (filename.includes(projectFileFolder)) {
-                                const relPath = filename                // Full path to gml output file
-                                    .replace(projectFileFolder, "")     // Remove the project's absolute path
-                                    .replace(/^\\/, "");                // Remove \ at start
-                                // console.log(relPath);
-                                if (projectXml.assets.scripts[0].script.indexOf(relPath) === -1) {
-                                    projectXml.assets.scripts[0].script.push(relPath);
+                            if (outputFile instanceof ScriptFile) {
+                                outFolder = path.join(projectFileFolder, "scripts");
+                            } else if (outputFile instanceof ObjectFile) {
+                                outFolder = path.join(projectFileFolder, "objects");
+                            }
+                            // Create a path for gml project files to use
+                            outFolder = outFolder
+                                .replace(projectFileFolder, "")
+                                .replace(/^\\/, "");
+                        }
+
+                        const outputFilePath = path.join(outFolder, outputFile.name);
+
+                        // Update the xml of a .project.gmx appropriately
+                        if (projectXml) {
+                            bindings.push(outputFilePath);
+                            if (outputFile instanceof ScriptFile) {
+                                if (!projectXml.assets.scripts[0].script) {
+                                    projectXml.assets.scripts[0].script = [];
                                 }
-                            } else {
-                                throw new Error(`${filename} is not within ${projectFilePath}`);
+                                if (projectXml.assets.scripts[0].script.indexOf(outputFilePath) === -1) {
+                                    projectXml.assets.scripts[0].script.push(outputFilePath);
+                                }
+                            } else if (outputFile instanceof ObjectFile) {
+                                if (!projectXml.assets.objects[0].object) {
+                                    projectXml.assets.objects[0].object = [];
+                                }
+                                const outputFileName = outputFilePath.replace(".object.gmx", "");
+                                if (projectXml.assets.objects[0].object.indexOf(outputFileName) === -1) {
+                                    projectXml.assets.objects[0].object.push(outputFileName);
+                                }
                             }
                         }
-                        ts.sys.writeFile(filename, transpiler.outputFiles[basefilename]);
-                    }
+
+                        // Create the file
+                        ts.sys.writeFile(outputFilePath, outputFile.content);
+
+                    });
                 } else {
                     // Write output
                     // change extension or rename to outFile
@@ -205,16 +215,26 @@ function emitFilesAndReportErrors(program: ts.Program): number {
     if (gmlTarget) {
         // Remove files that had been previously outputted
         if (bindingFileContent) {
-            bindingFileContent.forEach(file => {
-                if (bindings.indexOf(file) === -1) {
-                    fs.unlinkSync(path.join(projectFileFolder, "scripts", `${file}.gml`));
+            bindingFileContent.forEach((relativepath: string) => {
+                const absolutePath = path.join(projectFileFolder, relativepath);
+                if (bindings.indexOf(relativepath) === -1) {
+                    const folder = relativepath.split("\\")[0];
+                    if (folder === "objects") {
+                        const index = projectXml.assets.objects[0].object.indexOf(relativepath);
+                        projectXml.assets.objects[0].object.splice(index);
+                    } else if (folder === "scripts") {
+                        const index = projectXml.assets.scripts[0].script.indexOf(relativepath);
+                        projectXml.assets.scripts[0].script.splice(index);
+                    }
+                    fs.unlinkSync(absolutePath);
                 }
             });
         }
-        console.log(`${options.projectFile} updated`);
-        ts.sys.writeFile(bindingFilePath, JSON.stringify(bindings));
-        const xmlContent = new xml2js.Builder().buildObject(projectXml);
-        ts.sys.writeFile(projectFilePath, xmlContent);
+        if (projectXml) {
+            ts.sys.writeFile(bindingFilePath, JSON.stringify(bindings));
+            const xmlContent = new xml2js.Builder().buildObject(projectXml);
+            ts.sys.writeFile(projectFilePath, xmlContent);
+        }
     }
 
     // Copy lualib to target dir
