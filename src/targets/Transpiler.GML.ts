@@ -25,6 +25,8 @@ export class ScriptFile extends OutputFile {}
 
 export class ObjectFile extends OutputFile {}
 
+export class RoomFile extends OutputFile {}
+
 export class LuaTranspilerGML extends LuaTranspiler {
 
     public outputFiles: OutputFile[] = [];
@@ -41,8 +43,27 @@ export class LuaTranspilerGML extends LuaTranspiler {
 
     /** @override */
     public transpileClass(node: ts.ClassLikeDeclarationBase, nameOverride?: string): string {
-        const obj = gmBuilder.newObject();
         const className = this.transpileIdentifier(node.name);
+        const extendsType = tsHelper.getExtendedType(node, this.checker);
+        if (extendsType) {
+            const decorators = tsHelper.getCustomDecorators(extendsType, this.checker);
+            if (decorators.has(DecoratorKind.Room)) {
+                const room = gmBuilder.newRoom();
+                node.members.forEach(member => {
+                    if (ts.isMethodDeclaration(member)) {
+                        const methodName = this.transpileIdentifier(member.name as ts.Identifier);
+                        switch (methodName) {
+                            case "creationCode":
+                                room.room.code = this.transpileBlock(member.body);
+                        }
+                    }
+                });
+                const roomFile = new RoomFile(`${className}.room.gmx`, new xml2js.Builder().buildObject(room));
+                this.outputFiles.push(roomFile);
+                return "";
+            }
+        }
+        const obj = gmBuilder.newObject();
         const isStatic = prop => prop.modifiers && prop.modifiers.some(m => m.kind === ts.SyntaxKind.StaticKeyword);
         node.members.forEach(member => {
             const isStaticMember = isStatic(member);

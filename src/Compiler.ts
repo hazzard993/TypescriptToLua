@@ -5,7 +5,7 @@ import * as xml2js from "xml2js";
 
 import { parseCommandLine } from "./CommandLineParser";
 import { CompilerOptions } from "./CompilerOptions";
-import { LuaTranspilerGML, ObjectFile, ScriptFile } from "./targets/Transpiler.GML";
+import { LuaTranspilerGML, ObjectFile, ScriptFile, RoomFile } from "./targets/Transpiler.GML";
 import { LuaLibImportKind, LuaTarget } from "./Transpiler";
 
 import { GMHelper as gmHelper } from "./GMHelper";
@@ -144,6 +144,8 @@ function emitFilesAndReportErrors(program: ts.Program): number {
                                 outFolder = path.join(projectFileFolder, "scripts");
                             } else if (outputFile instanceof ObjectFile) {
                                 outFolder = path.join(projectFileFolder, "objects");
+                            } else if (outputFile instanceof RoomFile) {
+                                outFolder = path.join(projectFileFolder, "rooms");
                             }
                             // Create a path for gml project files to use
                             outFolder = outFolder
@@ -170,6 +172,14 @@ function emitFilesAndReportErrors(program: ts.Program): number {
                                 const outputFileName = outputFilePath.replace(".object.gmx", "");
                                 if (projectXml.assets.objects[0].object.indexOf(outputFileName) === -1) {
                                     projectXml.assets.objects[0].object.push(outputFileName);
+                                }
+                            } else if (outputFile instanceof RoomFile) {
+                                if (!projectXml.assets.rooms[0].room) {
+                                    projectXml.assets.rooms[0].room = [];
+                                }
+                                const outputFileName = outputFilePath.replace(".room.gmx", "");
+                                if (projectXml.assets.rooms[0].room.indexOf(outputFileName) === -1) {
+                                    projectXml.assets.rooms[0].room.push(outputFileName);
                                 }
                             }
                         }

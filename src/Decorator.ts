@@ -14,6 +14,9 @@ export class Decorator {
             case "phantom": return DecoratorKind.Phantom;
             case "tuplereturn": return DecoratorKind.TupleReturn;
             case "noclassor": return DecoratorKind.NoClassOr;
+            case "object": return DecoratorKind.Object;
+            case "action": return DecoratorKind.Action;
+            case "room": return DecoratorKind.Room;
         }
 
         return undefined;
@@ -37,4 +40,7 @@ export enum DecoratorKind {
     Phantom = "Phantom",
     TupleReturn = "TupleReturn",
     NoClassOr = "NoClassOr",
+    Object = "Object",
+    Action = "Action",
+    Room = "Room",
 }
