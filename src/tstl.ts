@@ -20,11 +20,14 @@ export {LuaTranspilerJIT} from "./targets/Transpiler.JIT";
 export {LuaTranspilerGML} from "./targets/Transpiler.GML";
 
 export {
-    LuaLibFeature,
     LuaLibImportKind,
     LuaTarget,
     LuaTranspiler,
 } from "./Transpiler";
+
+export {
+    LuaLibFeature,
+} from "./LuaLib";
 
 export {
     createTranspiler
