@@ -15,6 +15,8 @@ export class Decorator {
             case "tuplereturn": return DecoratorKind.TupleReturn;
             case "noclassor": return DecoratorKind.NoClassOr;
             case "luaiterator": return DecoratorKind.LuaIterator;
+            case "object": return DecoratorKind.Object;
+            case "room": return DecoratorKind.Room;
         }
 
         return undefined;
@@ -39,4 +41,6 @@ export enum DecoratorKind {
     TupleReturn = "TupleReturn",
     NoClassOr = "NoClassOr",
     LuaIterator = "LuaIterator",
+    Object = "Object",
+    Room = "Room",
 }

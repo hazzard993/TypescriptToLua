@@ -264,7 +264,7 @@ export class LuaTranspilerGML extends LuaTranspiler {
             const parameter = param.name as ts.Identifier;
             return parameter.originalKeywordKind !== ts.SyntaxKind.ThisKeyword;
         }));
-        const [paramNames, spreadIdentifier] = this.transpileParameters(parameters);
+        const [paramNames, spreadIdentifier] = this.transpileParameters(parameters, undefined);
         result += `/// Usage:  ${methodName}(${paramNames.join(", ")})\n`;
 
         // Build documentation
