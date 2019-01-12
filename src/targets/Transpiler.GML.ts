@@ -87,6 +87,23 @@ export class LuaTranspilerGML extends LuaTranspiler {
         }
     }
 
+    /**
+     * Transpiles an expression from the TypeScript AST.
+     * @param node The node to transpile from the AST.
+     * @throws Throws an error if the node has no gml equivalent.
+     * @override
+     */
+    public transpileExpression(node: ts.Node): string {
+        switch (node.kind) {
+            case ts.SyntaxKind.ArrayLiteralExpression:
+            case ts.SyntaxKind.FunctionExpression:
+            case ts.SyntaxKind.ObjectLiteralExpression:
+                throw TSTLErrors.UnsupportedKind("expression", node.kind, node);
+            default:
+                return super.transpileExpression(node);
+        }
+    }
+
     /** @override */
     public transpileClass(node: ts.ClassLikeDeclarationBase, nameOverride?: string): string {
         const className = this.transpileIdentifier(node.name);
