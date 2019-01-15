@@ -272,6 +272,13 @@ export class LuaTranspilerGML extends LuaTranspiler {
     }
 
     /** @override */
+    public transpileElementAccessExpression(node: ts.ElementAccessExpression): string {
+        const element = this.transpileExpression(node.expression);
+        const index = this.transpileExpression(node.argumentExpression);
+        return `${element}[${index}]`;
+    }
+
+    /** @override */
     public transpileFunctionDeclaration(node: ts.FunctionDeclaration): string {
         let result = "";
 
@@ -335,6 +342,15 @@ export class LuaTranspilerGML extends LuaTranspiler {
                 result += `${this.indent}{\n`;
                 this.pushIndent();
                 result += `${this.indent}${name} = argument[${index++}];\n`;
+                this.popIndent();
+                result += `${this.indent}}\n`;
+            } else if (param.dotDotDotToken) {
+                result += `${this.indent}var ${name};\n`;
+                result += `${this.indent}var _index = 0;\n`;
+                result += `${this.indent}for (var _i=${index++}; _i<argument_count; _i++)\n`;
+                result += `${this.indent}{\n`;
+                this.pushIndent();
+                result += `${this.indent}${name}[_index++] = argument[_i];\n`;
                 this.popIndent();
                 result += `${this.indent}}\n`;
             } else {
