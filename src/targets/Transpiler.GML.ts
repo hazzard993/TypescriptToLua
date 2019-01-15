@@ -259,14 +259,14 @@ export class LuaTranspilerGML extends LuaTranspiler {
 
     /** @override */
     public transpilePostfixUnaryExpression(node: ts.PostfixUnaryExpression): string {
-        const operand = this.transpileExpression(node.operand, true);
+        const operand = this.transpileExpression(node.operand);
         const operator = this.transpileUnaryOperator(node.operator);
         return `${operand}${operator}`;
     }
 
     /** @override */
     public transpilePrefixUnaryExpression(node: ts.PrefixUnaryExpression): string {
-        const operand = this.transpileExpression(node.operand, true);
+        const operand = this.transpileExpression(node.operand);
         const operator = this.transpileUnaryOperator(node.operator);
         return `${operator}${operand}`;
     }
