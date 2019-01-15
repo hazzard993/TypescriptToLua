@@ -17,8 +17,8 @@ export class GMHelper {
      * @param checker A typechecker
      */
     public static isObject(type: ts.Type, checker: ts.TypeChecker): boolean {
-        return tsHelper.forTypeOrAnySupertype(type, checker, iheritedType => {
-            if (tsHelper.getCustomDecorators(type, checker).has(DecoratorKind.Object)) {
+        return tsHelper.forTypeOrAnySupertype(type, checker, inheritedType => {
+            if (tsHelper.getCustomDecorators(inheritedType, checker).has(DecoratorKind.Object)) {
                 return true;
             }
         });
@@ -30,8 +30,8 @@ export class GMHelper {
      * @param checker A typechecker
      */
     public static isRoom(type: ts.Type, checker: ts.TypeChecker): boolean {
-        return tsHelper.forTypeOrAnySupertype(type, checker, iheritedType => {
-            if (tsHelper.getCustomDecorators(type, checker).has(DecoratorKind.Room)) {
+        return tsHelper.forTypeOrAnySupertype(type, checker, inheritedType => {
+            if (tsHelper.getCustomDecorators(inheritedType, checker).has(DecoratorKind.Room)) {
                 return true;
             }
         });
