@@ -8,6 +8,7 @@ import { TSHelper as tsHelper } from "../TSHelper";
 import * as ts from "typescript";
 import { Decorator, DecoratorKind } from "../Decorator";
 import { GMBuilder as gmBuilder } from "../GMBuilder";
+import { GMHelper as gmHelper } from "../GMHelper";
 
 const events = {
     beginStep: [3, 1],
@@ -109,8 +110,7 @@ export class LuaTranspilerGML extends LuaTranspiler {
         const className = this.transpileIdentifier(node.name);
         const extendsType = tsHelper.getExtendedType(node, this.checker);
         if (extendsType) {
-            const decorators = tsHelper.getCustomDecorators(extendsType, this.checker);
-            if (decorators.has(DecoratorKind.Room)) {
+            if (gmHelper.isRoom(extendsType, this.checker)) {
                 const room = gmBuilder.newRoom();
                 node.members.forEach(member => {
                     if (ts.isMethodDeclaration(member)) {
@@ -123,8 +123,7 @@ export class LuaTranspilerGML extends LuaTranspiler {
                 });
                 const roomFile = new RoomFile(`${className}.room.gmx`, new xml2js.Builder().buildObject(room));
                 this.outputFiles.push(roomFile);
-                return "";
-            } else if (decorators.has(DecoratorKind.Object)) {
+            } else if (gmHelper.isObject(extendsType, this.checker)) {
                 const obj = gmBuilder.newObject();
                 node.members.forEach(member => {
                     if (ts.isMethodDeclaration(member)) {

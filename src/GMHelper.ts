@@ -2,12 +2,40 @@ import fs = require("fs");
 import path = require("path");
 import ts = require("typescript");
 import xml2js = require("xml2js");
+import { DecoratorKind } from "./Decorator";
 import { GmlError } from "./Errors";
 import * as gm from "./GMResources";
 import { Project } from "./GMResources";
 import { ObjectFile, OutputFile, RoomFile, ScriptFile } from "./targets/Transpiler.GML";
+import { TSHelper as tsHelper } from "./TSHelper";
 
 export class GMHelper {
+
+    /**
+     * Returns true if the specified type is an Object
+     * @param type The type to check
+     * @param checker A typechecker
+     */
+    public static isObject(type: ts.Type, checker: ts.TypeChecker): boolean {
+        return tsHelper.forTypeOrAnySupertype(type, checker, iheritedType => {
+            if (tsHelper.getCustomDecorators(type, checker).has(DecoratorKind.Object)) {
+                return true;
+            }
+        });
+    }
+
+    /**
+     * Returns true if the specified type is a Room
+     * @param type The type to check
+     * @param checker A typechecker
+     */
+    public static isRoom(type: ts.Type, checker: ts.TypeChecker): boolean {
+        return tsHelper.forTypeOrAnySupertype(type, checker, iheritedType => {
+            if (tsHelper.getCustomDecorators(type, checker).has(DecoratorKind.Room)) {
+                return true;
+            }
+        });
+    }
 
     /**
      * Returns the project file's content in JSON format.
