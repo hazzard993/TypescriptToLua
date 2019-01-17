@@ -1,5 +1,6 @@
 import { Expect, FocusTest, Test, TestCase } from "alsatian";
 import mock = require("mock-fs");
+import * as ts from "typescript";
 import { GMBuilder as gmBuilder } from "../../../src/GMBuilder";
 import { GMHelper as gmHelper } from "../../../src/GMHelper";
 
@@ -29,6 +30,20 @@ const projectXML = `
 `;
 
 export class GMHelperTests {
+
+    @Test("Project.gmx is not mutated when read and written")
+    public testNoProjectMutation(): void {
+        const path = "Test.project.gmx";
+        mock({
+            [path]: mock.file({
+                content: projectXML,
+            }),
+        });
+        const project = gmHelper.getProjectJson(path);
+        gmHelper.setProjectJson(path, project);
+        Expect(project).toEqual(gmHelper.getProjectJson(path));
+        mock.restore();
+    }
 
     @TestCase(true, true, true)
     @TestCase(false, true, false)
