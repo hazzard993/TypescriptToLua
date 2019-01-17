@@ -96,4 +96,64 @@ export class GMLCLITests {
         mock.restore();
     }
 
+    @TestCase("function test() {} function func() {}", "",
+              ["scripts\\test.gml", "scripts\\func.gml"], [], ["scripts\\func.gml", "scripts\\test.gml"])
+    @TestCase("function test() {}", "function func() {}",
+              ["scripts\\test.gml"], ["scripts\\func.gml"], ["scripts\\test.gml"])
+    @TestCase("/** @Object */declare class GMObject {} class A extends GMObject {}",
+              "/** @Object */declare class GMObject {} class B extends GMObject {}",
+              ["objects\\A.object.gmx"], ["objects\\B.object.gmx"], ["objects\\A.object.gmx"])
+    @TestCase("/** @Object */declare class GMObject {} class A extends GMObject {}",
+              "function x() {}",
+              ["objects\\A.object.gmx"], ["scripts\\x.gml"], ["objects\\A.object.gmx"])
+    @Test("Test that bindings are added and removed appropriately")
+    public testBindings(source: string,
+                        sourceTwo: string,
+                        outputFiles: string[],
+                        outputFilesTwo: string[],
+                        ommittedFilesTwo: string[]): void {
+        mock({
+            "lib.d.ts": mock.file({
+                content: minimalLib,
+            }),
+            "scripts": mock.directory({ items: {} }),
+            "tsconfig.json": mock.file({
+                content: `
+                    {
+                        "compilerOptions": {
+                            "noLib": true,
+                        },
+                        "include": [
+                            "*.ts",
+                        ],
+                        "projectFile": "Test.project.gmx",
+                        "luaTarget": "gml",
+                    }
+                `,
+            }),
+        });
+        const project = gmBuilder.newProject();
+        gmHelper.setProjectJson("Test.project.gmx", project);
+        ts.sys.writeFile("index.ts", source);
+        compile(["-p", "tsconfig.json"]);
+        let bindings: string[] = JSON.parse(ts.sys.readFile("bindings.json", "utf8"));
+        for (const relativeOutputPath of outputFiles) {
+            const fullPath = path.resolve(".", relativeOutputPath);
+            Expect(bindings).toContain(fullPath);
+        }
+        ts.sys.writeFile("index.ts", sourceTwo);
+        compile(["-p", "tsconfig.json"]);
+        bindings = JSON.parse(ts.sys.readFile("bindings.json", "utf8"));
+        for (const relativeOutputPath of outputFilesTwo) {
+            const fullPath = path.resolve(".", relativeOutputPath);
+            Expect(bindings).toContain(fullPath);
+        }
+        bindings = JSON.parse(ts.sys.readFile("bindings.json", "utf8"));
+        for (const relativeOutputPath of ommittedFilesTwo) {
+            const fullPath = path.resolve(".", relativeOutputPath);
+            Expect(bindings).not.toContain(fullPath);
+        }
+        mock.restore();
+    }
+
 }
