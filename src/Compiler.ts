@@ -5,6 +5,7 @@ import * as xml2js from "xml2js";
 
 import { parseCommandLine } from "./CommandLineParser";
 import { CompilerOptions } from "./CompilerOptions";
+import { extractGMDefinitions } from "./Extractor";
 import { LuaTranspilerGML, ObjectFile, RoomFile, ScriptFile } from "./targets/Transpiler.GML";
 import { LuaLibImportKind, LuaTarget } from "./Transpiler";
 
@@ -14,10 +15,15 @@ import { createTranspiler } from "./TranspilerFactory";
 export function compile(argv: string[]): void {
     const commandLine = parseCommandLine(argv);
     /* istanbul ignore if: tested in test/compiler/watchmode.spec with subproccess */
-    if (commandLine.options.watch) {
-        watchWithOptions(commandLine.fileNames, commandLine.options);
-    } else {
-        compileFilesWithOptions(commandLine.fileNames, commandLine.options);
+    if (commandLine.options.luaTarget === LuaTarget.LuaGML && commandLine.options.extract) {
+        extractGMDefinitions(commandLine.options.projectFile, commandLine.options);
+    }
+    if (!commandLine.options.noTranspile) {
+        if (commandLine.options.watch) {
+            watchWithOptions(commandLine.fileNames, commandLine.options);
+        } else {
+            compileFilesWithOptions(commandLine.fileNames, commandLine.options);
+        }
     }
 }
 

@@ -13,6 +13,39 @@ interface ScriptsFolder {
     script?: string[];
 }
 
+interface Shader {
+    $: {
+        type: string;
+    };
+    _: string;
+}
+
+interface ShadersFolder {
+    $: {
+        type: string,
+        name: string,
+    };
+    _?: string[],
+    shaders?: ShadersFolder[];
+    shader?: Shader[];
+}
+
+interface FontsFolder {
+    $: {
+        name: string,
+    };
+    fonts?: FontsFolder[];
+    font?: string[];
+}
+
+interface TimelinesFolder {
+    $: {
+        name: string,
+    };
+    timelines?: TimelinesFolder[];
+    timeline?: string[];
+}
+
 interface SoundsFolder {
     $: {
         name: string,
@@ -85,6 +118,9 @@ export interface Project {
         backgrounds: BackgroundsFolder[],
         paths: PathsFolder[],
         scripts: ScriptsFolder[],
+        shaders: ShadersFolder[],
+        fonts: FontsFolder[],
+        timelines: TimelinesFolder[],
         objects: ObjectsFolder[],
         rooms: RoomsFolder[],
         help: [

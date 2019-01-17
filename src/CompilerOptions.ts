@@ -5,4 +5,7 @@ export interface CompilerOptions extends ts.CompilerOptions {
     luaTarget?: string;
     luaLibImport?: string;
     projectFile?: string;
+    extractedDefinitionsFile?: string;
+    extract?: boolean;
+    noTranspile?: boolean;
 }

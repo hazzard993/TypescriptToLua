@@ -38,7 +38,7 @@ export class GMBuilder {
                 backgrounds: [
                     {
                         $: {
-                            name: "backgrounds",
+                            name: "background",
                         },
                         background: [],
                     },
@@ -59,12 +59,36 @@ export class GMBuilder {
                         script: [],
                     },
                 ],
+                shaders: [
+                    {
+                        $: {
+                            name: "shaders",
+                        },
+                        shader: [],
+                    },
+                ],
+                fonts: [
+                    {
+                        $: {
+                            name: "fonts",
+                        },
+                        font: [],
+                    },
+                ],
                 objects: [
                     {
                         $: {
                             name: "objects",
                         },
                         object: [],
+                    },
+                ],
+                timelines: [
+                    {
+                        $: {
+                            name: "timelines",
+                        },
+                        timeline: [],
                     },
                 ],
                 rooms: [

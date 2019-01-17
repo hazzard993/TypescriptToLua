@@ -14,6 +14,18 @@ interface YargsOptions {
 }
 
 export const optionDeclarations: YargsOptions = {
+    extract: {
+        alias: "e",
+        default: false,
+        describe: "Extract definitions from an existing project (for gml target)",
+        type: "boolean",
+    },
+    extractedDefinitionsFile: {
+        alias: "edf",
+        default: "project.d.ts",
+        describe: "What file the extracted definitions go to (for gml target)",
+        type: "string",
+    },
     luaLibImport: {
         choices: ["inline", "require", "none"],
         default: "inline",
@@ -30,6 +42,11 @@ export const optionDeclarations: YargsOptions = {
     noHeader: {
         default: false,
         describe: "Specify if a header will be added to compiled files.",
+        type: "boolean",
+    },
+    noTranspile: {
+        default: false,
+        describe: "Do not transpile, extract definitions only",
         type: "boolean",
     },
     projectFile: {
