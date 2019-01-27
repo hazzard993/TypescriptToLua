@@ -1,7 +1,22 @@
+import ts = require("typescript");
+
 export class Decorator {
 
     public static isValid(decoratorKindString: string): boolean {
         return this.getDecoratorKind(decoratorKindString) !== undefined;
+    }
+
+    public static fromJSDocTagInfo(tag: ts.JSDocTagInfo): Decorator | ActionDecorator | undefined {
+        const decoratorName = this.getDecoratorKind(tag.name);
+        switch (decoratorName) {
+            case DecoratorKind.Action:
+                const [eventType, eventNumber] = tag.text.split(" ").map(tagText => parseInt(tagText));
+                return new ActionDecorator(eventType, eventNumber);
+        }
+        if (decoratorName) {
+            return new Decorator(decoratorName, tag.text.split(" "));
+        }
+        return undefined;
     }
 
     public static getDecoratorKind(decoratorKindString: string): DecoratorKind {
@@ -17,6 +32,7 @@ export class Decorator {
             case "luaiterator": return DecoratorKind.LuaIterator;
             case "object": return DecoratorKind.Object;
             case "room": return DecoratorKind.Room;
+            case "action": return DecoratorKind.Action;
         }
 
         return undefined;
@@ -31,6 +47,10 @@ export class Decorator {
     }
 }
 
+export class ActionDecorator {
+    constructor(public eventType: number, public eventNumber: number) {}
+}
+
 export enum DecoratorKind {
     Extension = "Extension",
     MetaExtension = "MetaExtension",
@@ -43,4 +63,5 @@ export enum DecoratorKind {
     LuaIterator = "LuaIterator",
     Object = "Object",
     Room = "Room",
+    Action = "Action",
 }

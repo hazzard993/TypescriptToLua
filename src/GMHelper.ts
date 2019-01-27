@@ -2,7 +2,7 @@ import fs = require("fs");
 import path = require("path");
 import ts = require("typescript");
 import xml2js = require("xml2js");
-import { DecoratorKind } from "./Decorator";
+import { ActionDecorator, Decorator, DecoratorKind } from "./Decorator";
 import { GmlError } from "./Errors";
 import * as gm from "./GMResources";
 import { Project } from "./GMResources";
@@ -35,6 +35,36 @@ export class GMHelper {
                 return true;
             }
         });
+    }
+
+    /**
+     * Traverses the AST downwards via extend keywords until reaching an Object decorated class.
+     * It then looks at the methods defined for that object and then returns the method and related action decorator.
+     * @param type Class type, can get obtained from checker.getTypeAtLocation
+     * @param checker Used as a tool for the AST
+     */
+    public static getBaseMethodActionDecorators(
+        type: ts.Type,
+        checker: ts.TypeChecker): { [key: string]: ActionDecorator } {
+        const map = {};
+        const decorators = tsHelper.getCustomDecorators(type, checker);
+        if (decorators.has(DecoratorKind.Object)) {
+            type.symbol.members.forEach((member, methodName) => {
+                let actionTag: ActionDecorator;
+                member.getJsDocTags().forEach(tag => {
+                    const decorator = Decorator.fromJSDocTagInfo(tag);
+                    if (decorator instanceof ActionDecorator) {
+                        actionTag = decorator;
+                    }
+                });
+                map[methodName.toString()] = actionTag;
+            });
+            return map;
+        } else {
+            for (const baseType of type.getBaseTypes()) {
+                return this.getBaseMethodActionDecorators(baseType, checker);
+            }
+        }
     }
 
     /**

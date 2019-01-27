@@ -6,18 +6,8 @@ import { LuaTranspiler } from "../Transpiler";
 import { TSHelper as tsHelper } from "../TSHelper";
 
 import * as ts from "typescript";
-import { Decorator, DecoratorKind } from "../Decorator";
 import { GMBuilder as gmBuilder } from "../GMBuilder";
 import { GMHelper as gmHelper } from "../GMHelper";
-
-const events = {
-    beginStep: [3, 1],
-    create: [0, 0],
-    destroy: [1, 0],
-    draw: [8, 0],
-    endStep: [3, 2],
-    step: [3, 0],
-};
 
 export interface OutputFile {
     /**
@@ -125,13 +115,16 @@ export class LuaTranspilerGML extends LuaTranspiler {
                 this.outputFiles.push(roomFile);
             } else if (gmHelper.isObject(extendsType, this.checker)) {
                 const obj = gmBuilder.newObject();
+                const baseMethodActionDecorators = gmHelper.getBaseMethodActionDecorators(
+                    this.checker.getTypeAtLocation(node), this.checker);
                 node.members.forEach(member => {
                     if (ts.isMethodDeclaration(member)) {
                         const methodName = this.transpileIdentifier(member.name as ts.Identifier);
-                        const event = events[methodName];
-                        if (event !== undefined) {
+                        const actionTag = baseMethodActionDecorators[methodName];
+                        if (actionTag) {
                             const result = this.transpileBlock(member.body);
-                            obj.object.events.event.push(gmBuilder.newEvent(event[0], event[1], result));
+                            obj.object.events.event.push(
+                                gmBuilder.newEvent(actionTag.eventType, actionTag.eventNumber, result));
                         } else {
                             const scriptName = `${className}_${methodName}`;
                             const functionDeclaration = ts.createFunctionDeclaration(
