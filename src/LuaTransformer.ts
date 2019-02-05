@@ -3208,8 +3208,9 @@ export class LuaTransformer {
     }
 
     private getImportPath(relativePath: string): string {
-        // Calculate absolute path to import
-        const absolutePathToImport = this.getAbsoluteImportPath(relativePath);
+        // Calculate absolute path to import, ensure it uses forward slashes
+        const absolutePathToImport = this.getAbsoluteImportPath(relativePath)
+            .replace(/\\/g, "/");
         if (this.options.rootDir) {
             // Calculate path relative to project root
             // and replace path.sep with dots (lua doesn't know paths)
