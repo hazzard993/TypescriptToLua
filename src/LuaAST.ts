@@ -808,7 +808,15 @@ export function createIdentifier(
 ): Identifier
 {
     const expression = createNode(SyntaxKind.Identifier, tsOriginal, parent) as Identifier;
-    expression.text = text as string;
+    expression.text = (text as string)
+        .replace("-", "__DASH_")
+        .replace(".", "__DOT_")
+        .replace(" ", "__SPACE_")
+        .replace('"', "__SINGLE_QUOTE_")
+        .replace('"', "__DOUBLE_QUOTE_")
+        .replace('\\', "__BACKSLASH_")
+        .replace("$", "__DOLLAR_")
+        .replace("#", "__HASH_");
     expression.symbolId = symbolId;
     return expression;
 }
