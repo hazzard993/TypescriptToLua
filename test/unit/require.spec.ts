@@ -32,4 +32,17 @@ export class RequireTests {
         }
     }
 
+    @TestCase("$file", /(?<!")\$file/g)
+    @TestCase("#file", /(?<!")#file/g)
+    @TestCase(" file", /(?<!") file/g)
+    @TestCase("file name", /(?<!")file name/g)
+    @TestCase("file-name", /(?<!")file-name/g)
+    @TestCase("$#_horrid-file name", /(?<!")\$#_horrid-file name/g)
+    @Test("required files can contain special file specific symbols")
+    public testRequireSpecialFilenameSymbols(filename: string, nullRegex: RegExp): void {
+        const lua = util.transpileString(`import { test } from "${filename}";`, undefined, true);
+        // Checks that no identifiers exist that contain the special file name symbols
+        Expect(lua.match(nullRegex)).toBeNull();
+    }
+
 }
