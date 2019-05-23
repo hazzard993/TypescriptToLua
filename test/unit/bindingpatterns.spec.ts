@@ -157,3 +157,22 @@ test.each([...assignmentBindingPatterns, ...testCases])(
         expect(result).toBe(true);
     },
 );
+
+test.each([
+    { bindingString: "{ x: x.prop = true } = {}", returnValue: "x.prop", expectedResult: true },
+    {
+        bindingString: "{ x: x.prop = true } = {}",
+        returnValue: "typeof y === 'object'",
+        expectedResult: true,
+    },
+])(
+    "Binding pattern assignment pass-through (%p)",
+    ({ bindingString, returnValue, expectedResult }) => {
+        const result = util.transpileAndExecute(`
+            let x: any = {}, y: any = {};
+            y = ${bindingString};
+            return ${returnValue};
+        `);
+        expect(result).toBe(expectedResult);
+    },
+);
