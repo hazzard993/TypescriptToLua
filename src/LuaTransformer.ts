@@ -1343,6 +1343,253 @@ export class LuaTransformer {
         return tstl.createIfStatement(nilCondition, ifBlock, undefined, declaration);
     }
 
+    private createAccessExpressionFromPropertyNames(
+        propertyNames: ts.PropertyName[]
+    ): ts.Expression {
+        let lastNode: ts.Expression | undefined = undefined;
+        propertyNames.forEach(property => {
+            let newNode: ts.Expression;
+            if (ts.isIdentifier(property)) {
+                if (lastNode) {
+                    newNode = ts.createPropertyAccess(
+                        lastNode,
+                        property
+                    );
+                } else {
+                    newNode = property;
+                }
+            } else {
+                const indexer = ts.isComputedPropertyName(property)
+                    ? property.expression
+                    : property;
+                if (lastNode) {
+                    newNode = ts.createElementAccess(
+                        lastNode,
+                        indexer
+                    );
+                } else {
+                    newNode = indexer;
+                }
+            }
+            lastNode = newNode;
+        });
+        if (lastNode) {
+            return lastNode;
+        } else {
+            // This should only be reached if propertyNames.length is 0.
+            // That is a misuse of this method.
+            throw TSTLErrors.BindingPatternTranspileError("Failed to create propertyAccessExpression");
+        }
+    }
+
+    private transformObjectOrArrayLiteralAssignmentStatement(
+        expression: ts.AssignmentExpression<ts.Token<ts.SyntaxKind.EqualsToken>>
+            & { left: ts.ObjectLiteralExpression | ts.ArrayLiteralExpression }
+    ): StatementVisitResult {
+        const result: tstl.Statement[] = [];
+
+        // Contain the right hand side expression in an anonymous identifier
+        const tableIdentifier = tstl.createAnonymousIdentifier();
+        const tsTableIdentifier = ts.createIdentifier(tableIdentifier.text);
+        result.push(
+            tstl.createVariableDeclarationStatement(
+                tableIdentifier,
+                this.transformExpression(expression.right),
+                expression
+            )
+        );
+
+        const assignmentAndIfStatements = this.transformObjectOrArrayLiteralToAssignmentAndIfStatements(
+            tsTableIdentifier,
+            expression.left
+        );
+
+        assignmentAndIfStatements.forEach(assignmentAndIfStatement => {
+            result.push(
+                ...this.statementVisitResultToArray(
+                    this.transformExpressionStatement(assignmentAndIfStatement.expression)
+                )
+            );
+            if (assignmentAndIfStatement.ifStatement) {
+                result.push(
+                    ...this.statementVisitResultToArray(
+                        this.transformIfStatement(assignmentAndIfStatement.ifStatement)
+                    )
+                );
+            }
+        });
+
+        return result;
+    }
+
+    private transformObjectOrArrayLiteralToAssignmentAndIfStatements(
+        root: ts.Identifier,
+        literal: ts.ObjectLiteralExpression | ts.ArrayLiteralExpression,
+        propertyAccessStack: ts.PropertyName[] = []
+    ): Array<{ expression: ts.ExpressionStatement, ifStatement?: ts.IfStatement }> {
+        const result: Array<{ expression: ts.ExpressionStatement, ifStatement?: ts.IfStatement }> = [];
+
+        // Iterate through all elements at this level
+        const elements = ts.isObjectLiteralExpression(literal) ? literal.properties : literal.elements;
+        for (let index = 0; index < elements.length; index++) {
+            const element = elements[index];
+
+            if (ts.isShorthandPropertyAssignment(element)) {
+                // Shorthand assignment ({x} = {x: 0}) and/or ({x = 0} = {x: 0})
+                result.push({
+                    expression: ts.createExpressionStatement(
+                        ts.createBinary(
+                            element.name,
+                            ts.createToken(ts.SyntaxKind.FirstAssignment),
+                            this.createAccessExpressionFromPropertyNames(
+                                [root, ...propertyAccessStack, element.name]
+                            )
+                        )
+                    ),
+                    ifStatement: element.objectAssignmentInitializer
+                        ? ts.createIf(
+                            ts.createBinary(
+                                element.name,
+                                ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
+                                ts.createNull()
+                            ),
+                            ts.createBlock([
+                                ts.createExpressionStatement(
+                                    ts.createBinary(
+                                        element.name,
+                                        ts.createToken(ts.SyntaxKind.FirstAssignment),
+                                        element.objectAssignmentInitializer
+                                    )
+                                ),
+                            ])
+                        )
+                        : undefined,
+                });
+            } else if (ts.isPropertyAssignment(element)) {
+                // Property assignment ({x: ...?} = {x: 0})
+                if (ts.isObjectLiteralExpression(element.initializer)
+                    || ts.isArrayLiteralExpression(element.initializer)) {
+                    // Object nested bindings ({x: [...]}) or ({x: {}})
+                    result.push(
+                        ...this.transformObjectOrArrayLiteralToAssignmentAndIfStatements(
+                            root,
+                            element.initializer,
+                            [...propertyAccessStack, element.name]
+                        )
+                    );
+                } else if (ts.isIdentifier(element.initializer) || ts.isPropertyAccessExpression(element.initializer)) {
+                    // Different variable name ({x: y} = {x: 0})
+                    result.push({
+                        expression: ts.createExpressionStatement(
+                            ts.createBinary(
+                                element.initializer,
+                                ts.createToken(ts.SyntaxKind.FirstAssignment),
+                                this.createAccessExpressionFromPropertyNames(
+                                    [root, ...propertyAccessStack, element.name]
+                                )
+                            )
+                        ),
+                    });
+                } else if (ts.isBinaryExpression(element.initializer)) {
+                    // Default value + different variable name ({x: y = 0} = {x: 0})
+                    result.push({
+                        expression: ts.createExpressionStatement(
+                            ts.createBinary(
+                                element.initializer.left,
+                                ts.createToken(ts.SyntaxKind.FirstAssignment),
+                                this.createAccessExpressionFromPropertyNames(
+                                    [root, ...propertyAccessStack, element.name]
+                                )
+                            )
+                        ),
+                        ifStatement: ts.createIf(
+                            ts.createBinary(
+                                element.initializer.left,
+                                ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
+                                ts.createNull()
+                            ),
+                            ts.createBlock([
+                                ts.createExpressionStatement(
+                                    ts.createBinary(
+                                        element.initializer.left,
+                                        ts.createToken(ts.SyntaxKind.FirstAssignment),
+                                        element.initializer.right
+                                    )
+                                ),
+                            ])
+                        ),
+                    });
+                } else {
+                    throw TSTLErrors.UnsupportedKind(
+                        "Object Binding Assignment Statement Element",
+                        element.kind,
+                        element
+                    );
+                }
+            } else if (ts.isIdentifier(element) || ts.isPropertyAccessExpression(element)) {
+                // Array variable ([x] = [0])
+                result.push({
+                    expression: ts.createExpressionStatement(
+                        ts.createBinary(
+                            element,
+                            ts.createToken(ts.SyntaxKind.FirstAssignment),
+                            this.createAccessExpressionFromPropertyNames(
+                                [root, ...propertyAccessStack, ts.createNumericLiteral(String(index + 1))]
+                            )
+                        )
+                    ),
+                });
+            } else if (ts.isObjectLiteralExpression(element)
+                || ts.isArrayLiteralExpression(element)) {
+                // Array nested bindings ([[...]]) or ([{...}])
+                result.push(
+                    ...this.transformObjectOrArrayLiteralToAssignmentAndIfStatements(
+                        root,
+                        element,
+                        [...propertyAccessStack, ts.createNumericLiteral(String(index + 1))]
+                    )
+                );
+            } else if (ts.isBinaryExpression(element)) {
+                // Array variable with default value ([x] = [0])
+                result.push({
+                    expression: ts.createExpressionStatement(
+                        ts.createBinary(
+                            element.left,
+                            ts.createToken(ts.SyntaxKind.FirstAssignment),
+                            this.createAccessExpressionFromPropertyNames(
+                                [root, ...propertyAccessStack, ts.createNumericLiteral(String(index + 1))]
+                            )
+                        )
+                    ),
+                    ifStatement: ts.createIf(
+                        ts.createBinary(
+                            element.left,
+                            ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
+                            ts.createNull()
+                        ),
+                        ts.createBlock([
+                            ts.createExpressionStatement(
+                                ts.createBinary(
+                                    element.left,
+                                    ts.createToken(ts.SyntaxKind.FirstAssignment),
+                                    element.right
+                                )
+                            ),
+                        ])
+                    ),
+                });
+            } else if (ts.isOmittedExpression(element)) {
+                // Ignore
+            } else {
+                throw TSTLErrors.UnsupportedKind("Array Binding Assignment Statement", element.kind, element);
+            }
+
+        }
+
+        propertyAccessStack.pop();
+        return result;
+    }
+
     public transformBindingPattern(
         pattern: ts.BindingPattern,
         table: tstl.Identifier,
@@ -1998,6 +2245,18 @@ export class LuaTransformer {
                 this.transformExpression(expression.expression) as tstl.IdentifierOrTableIndexExpression,
                 tstl.createNilLiteral(),
                 expression
+            );
+        }
+
+        if (ts.isParenthesizedExpression(expression)
+            && ts.isBinaryExpression(expression.expression)
+            && expression.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken
+            && (ts.isObjectLiteralExpression(expression.expression.left)
+                || ts.isArrayLiteralExpression(expression.expression.left))) {
+            // Turn ([x, y] = [0, 1]) and ({ x, y } = { x: 0, y: 1 }) into multiple assignment statements
+            return this.transformObjectOrArrayLiteralAssignmentStatement(expression.expression as
+                ts.AssignmentExpression<ts.Token<ts.SyntaxKind.EqualsToken>>
+                & { left: ts.ObjectLiteralExpression }
             );
         }
 

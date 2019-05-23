@@ -3,6 +3,9 @@ import { TranspileError } from "./TranspileError";
 import { TSHelper as tsHelper } from "./TSHelper";
 
 export class TSTLErrors {
+    public static BindingPatternTranspileError = (description: string) =>
+        new Error(`Binding pattern transpile error: ${description}`);
+
     public static CouldNotCast = (castName: string) =>
         new Error(`Failed to cast all elements to expected type using ${castName}.`);
 
