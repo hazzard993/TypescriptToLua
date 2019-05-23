@@ -176,3 +176,39 @@ test.each([
         expect(result).toBe(expectedResult);
     },
 );
+
+test("Array binding pattern to assign array length (%p)", () => {
+    const result = util.transpileAndExecute(`
+            let x = [0, 1, 2];
+            [x.length] = [0];
+            return x.length;
+        `);
+    expect(result).toBe(0);
+});
+
+test("Nested array binding pattern to assign array length (%p)", () => {
+    const result = util.transpileAndExecute(`
+            let x = [0, 1, 2];
+            [[x.length]] = [[0]];
+            return x.length;
+        `);
+    expect(result).toBe(0);
+});
+
+test("Object binding pattern to assign array length (%p)", () => {
+    const result = util.transpileAndExecute(`
+            let x = [0, 1, 2];
+            ({ x: x.length } = { x: 0 });
+            return x.length;
+        `);
+    expect(result).toBe(0);
+});
+
+test("Nested object binding pattern to assign array length (%p)", () => {
+    const result = util.transpileAndExecute(`
+            let x = [0, 1, 2];
+            ({ x: { x: x.length } } = { x: { x: 0 } });
+            return x.length;
+        `);
+    expect(result).toBe(0);
+});
