@@ -143,3 +143,17 @@ test.each([...assignmentBindingPatterns, ...testCases])(
         expect(result).toBe(true);
     },
 );
+
+test.each([...assignmentBindingPatterns, ...testCases])(
+    "Binding patterns always pass a conditional check (%p)",
+    ({ bindingString, objectString, returnVariable }) => {
+        const result = util.transpileAndExecute(`
+            let x, y, z, foo, bar, obj: { prop: boolean };
+            obj = { prop: false };
+            if (${bindingString} = ${objectString}) {
+                return ${returnVariable};
+            }
+        `);
+        expect(result).toBe(true);
+    },
+);
