@@ -3584,7 +3584,9 @@ export class LuaTransformer {
 
     public transformArrayLiteral(expression: ts.ArrayLiteralExpression): ExpressionVisitResult {
         const values = expression.elements.map(
-            e => tstl.createTableFieldExpression(this.transformExpression(e), undefined, e)
+            e => ts.isOmittedExpression(e)
+                ? tstl.createNilLiteral(e)
+                : tstl.createTableFieldExpression(this.transformExpression(e), undefined, e)
         );
 
         return tstl.createTableExpression(values, expression);

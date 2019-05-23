@@ -664,7 +664,7 @@ export function createTableFieldExpression(
     parent?: Node
 ): TableFieldExpression
 {
-    const expression = createNode(SyntaxKind.TableExpression, tsOriginal, parent) as TableFieldExpression;
+    const expression = createNode(SyntaxKind.TableFieldExpression, tsOriginal, parent) as TableFieldExpression;
     setParent(value, expression);
     expression.value = value;
     setParent(key, expression);
@@ -674,7 +674,7 @@ export function createTableFieldExpression(
 
 export interface TableExpression extends Expression {
     kind: SyntaxKind.TableExpression;
-    fields?: TableFieldExpression[];
+    fields?: Array<TableFieldExpression | NilLiteral>;
 }
 
 export function isTableExpression(node: Node): node is TableExpression {
@@ -682,7 +682,7 @@ export function isTableExpression(node: Node): node is TableExpression {
 }
 
 export function createTableExpression(
-    fields?: TableFieldExpression[],
+    fields?: Array<TableFieldExpression | NilLiteral>,
     tsOriginal?: ts.Node,
     parent?: Node
 ): TableExpression

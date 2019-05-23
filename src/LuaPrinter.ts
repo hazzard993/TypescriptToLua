@@ -578,12 +578,20 @@ export class LuaPrinter {
         if (expression.fields && expression.fields.length > 0) {
             if (expression.fields.length === 1) {
                 // Inline tables with only one entry
-                chunks.push(this.printTableFieldExpression(expression.fields[0]));
-
+                const field = expression.fields[0];
+                chunks.push(tstl.isTableFieldExpression(field)
+                    ? this.printTableFieldExpression(field)
+                    : this.printNilLiteral(field));
             } else {
                 chunks.push("\n");
                 this.pushIndent();
-                expression.fields.forEach(f => chunks.push(this.indent(), this.printTableFieldExpression(f), ",\n"));
+                expression.fields.forEach(f => chunks.push(
+                    this.indent(),
+                    tstl.isTableFieldExpression(f)
+                        ? this.printTableFieldExpression(f)
+                        : this.printNilLiteral(f),
+                    ",\n"
+                ));
                 this.popIndent();
                 chunks.push(this.indent());
             }
