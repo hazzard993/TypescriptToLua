@@ -1470,10 +1470,57 @@ export class LuaTransformer {
         }
     }
 
-    private transformObjectOrArrayLiteralAssignmentStatement(
-        expression: ts.AssignmentExpression<ts.Token<ts.SyntaxKind.EqualsToken>>
+    private transformArrayLiteralAssignment(
+        expression: ts.BinaryExpression & { left: ts.ArrayLiteralExpression }
+    ): { statements: tstl.Statement[], tableLiteral: tstl.TableExpression } {
+        // (function() local ${tmps} = ${right}; ${left} = ${tmps}; return {${tmps}} end)()
+        const left = expression.left.elements.length > 0
+            ? expression.left.elements.map(e => this.transformExpression(e))
+            : [tstl.createAnonymousIdentifier(expression.left)];
+        let right: tstl.Expression[];
+        if (ts.isArrayLiteralExpression(expression.right)) {
+            right = expression.right.elements.length > 0
+                ? expression.right.elements.map(e => this.transformExpression(e))
+                : [tstl.createNilLiteral()];
+        } else if (tsHelper.isTupleReturnCall(expression.right, this.checker)) {
+            right = [this.transformExpression(expression.right)];
+        } else {
+            right = [this.createUnpackCall(this.transformExpression(expression.right), expression.right)];
+        }
+        const tmps = left.map((_, i) => tstl.createIdentifier(`____TS_tmp${i}`));
+        const statements: tstl.Statement[] = [
+            tstl.createVariableDeclarationStatement(tmps, right),
+            tstl.createAssignmentStatement(left as tstl.AssignmentLeftHandSideExpression[], tmps),
+        ];
+        return {
+            statements,
+            tableLiteral: tstl.createTableExpression(tmps.map(t => tstl.createTableFieldExpression(t))),
+        };
+    }
+
+    private transformObjectOrArrayLiteralAssignmentExpression(
+        expression: ts.BinaryExpression
             & { left: ts.ObjectLiteralExpression | ts.ArrayLiteralExpression }
-    ): { statements: tstl.Statement[], tableIdentifier: tstl.Identifier } {
+    ): tstl.CallExpression | tstl.MethodCallExpression {
+
+        // Optimization available for array literal assignment statements
+        // Will not work for nested binding patterns nor omitted expressions
+        if (ts.isArrayLiteralExpression(expression.left)
+            && expression.left.elements.every(element =>
+                !ts.isArrayLiteralExpression(element)
+                && !ts.isObjectLiteralExpression(element)
+                && !ts.isOmittedExpression(element))) {
+            const { statements, tableLiteral } = this.transformArrayLiteralAssignment(expression as
+                ts.BinaryExpression & { left: ts.ArrayLiteralExpression }
+            );
+
+            return this.createImmediatelyInvokedFunctionExpression(
+                statements,
+                tableLiteral,
+                expression
+            );
+        }
+
         const statements: tstl.Statement[] = [];
 
         // Contain the right hand side expression in an anonymous identifier
@@ -1507,7 +1554,67 @@ export class LuaTransformer {
             }
         });
 
-        return { statements, tableIdentifier };
+        return this.createImmediatelyInvokedFunctionExpression(
+            statements,
+            tableIdentifier,
+            expression
+        );
+    }
+
+    private transformObjectOrArrayLiteralAssignmentStatement(
+        expression: ts.BinaryExpression
+            & { left: ts.ObjectLiteralExpression | ts.ArrayLiteralExpression }
+    ): StatementVisitResult {
+
+        // Optimization available for array literal assignment statements
+        // Will not work for nested binding patterns nor omitted expressions
+        if (ts.isArrayLiteralExpression(expression.left)
+            && expression.left.elements.every(element =>
+                !ts.isArrayLiteralExpression(element)
+                && !ts.isObjectLiteralExpression(element)
+                && !ts.isOmittedExpression(element))) {
+            const { statements } = this.transformArrayLiteralAssignment(expression as
+                ts.AssignmentExpression<ts.Token<ts.SyntaxKind.EqualsToken>>
+                & { left: ts.ArrayLiteralExpression }
+            );
+
+            return statements;
+        }
+
+        const statements: tstl.Statement[] = [];
+
+        // Contain the right hand side expression in an anonymous identifier
+        const tableIdentifier = tstl.createAnonymousIdentifier();
+        const tsTableIdentifier = ts.createIdentifier(tableIdentifier.text);
+        statements.push(
+            tstl.createVariableDeclarationStatement(
+                tableIdentifier,
+                this.transformExpression(expression.right),
+                expression
+            )
+        );
+
+        const assignmentAndIfStatements = this.transformObjectOrArrayLiteralToAssignmentAndIfStatements(
+            tsTableIdentifier,
+            expression.left
+        );
+
+        assignmentAndIfStatements.forEach(assignmentAndIfStatement => {
+            statements.push(
+                ...this.statementVisitResultToArray(
+                    this.transformExpressionStatement(assignmentAndIfStatement.expression)
+                )
+            );
+            if (assignmentAndIfStatement.ifStatement) {
+                statements.push(
+                    ...this.statementVisitResultToArray(
+                        this.transformIfStatement(assignmentAndIfStatement.ifStatement)
+                    )
+                );
+            }
+        });
+
+        return statements;
     }
 
     private transformObjectOrArrayLiteralToAssignmentAndIfStatements(
@@ -2371,12 +2478,9 @@ export class LuaTransformer {
             && (ts.isObjectLiteralExpression(expression.expression.left)
                 || ts.isArrayLiteralExpression(expression.expression.left))) {
             // Turn ([x, y] = [0, 1]) and ({ x, y } = { x: 0, y: 1 }) into multiple assignment statements
-            const { statements } = this.transformObjectOrArrayLiteralAssignmentStatement(expression.expression as
-                ts.AssignmentExpression<ts.Token<ts.SyntaxKind.EqualsToken>>
-                & { left: ts.ObjectLiteralExpression }
+            return this.transformObjectOrArrayLiteralAssignmentStatement(expression.expression as
+                ts.BinaryExpression & { left: ts.ObjectLiteralExpression | ts.ArrayLiteralExpression }
             );
-
-            return statements;
         }
 
         if (!ts.isCallLikeExpression(expression)) {
@@ -3180,54 +3284,9 @@ export class LuaTransformer {
 
         if (ts.isArrayLiteralExpression(expression.left)
             || ts.isObjectLiteralExpression(expression.left)) {
-
-            // Optimization available for array literal assignment statements
-            // Will not work for nested binding patterns nor omitted expressions
-            if (ts.isArrayLiteralExpression(expression.left)
-                && expression.left.elements.every(element =>
-                    !ts.isArrayLiteralExpression(element)
-                    && !ts.isObjectLiteralExpression(element)
-                    && !ts.isOmittedExpression(element))) {
-
-                // (function() local ${tmps} = ${right}; ${left} = ${tmps}; return {${tmps}} end)()
-                const left = expression.left.elements.length > 0
-                    ? expression.left.elements.map(e => this.transformExpression(e))
-                    : [tstl.createAnonymousIdentifier(expression.left)];
-                let right: tstl.Expression[];
-                if (ts.isArrayLiteralExpression(expression.right)) {
-                    right = expression.right.elements.length > 0
-                        ? expression.right.elements.map(e => this.transformExpression(e))
-                        : [tstl.createNilLiteral()];
-                } else if (tsHelper.isTupleReturnCall(expression.right, this.checker)) {
-                    right = [this.transformExpression(expression.right)];
-                } else {
-                    right = [this.createUnpackCall(this.transformExpression(expression.right), expression.right)];
-                }
-                const tmps = left.map((_, i) => tstl.createIdentifier(`____TS_tmp${i}`));
-                const statements: tstl.Statement[] = [
-                    tstl.createVariableDeclarationStatement(tmps, right),
-                    tstl.createAssignmentStatement(left as tstl.AssignmentLeftHandSideExpression[], tmps),
-                ];
-                return this.createImmediatelyInvokedFunctionExpression(
-                    statements,
-                    tstl.createTableExpression(tmps.map(t => tstl.createTableFieldExpression(t))),
-                    expression
-                );
-
-            }
-
-            // Fallback in case optimization cannot be done
-            const { statements, tableIdentifier } = this.transformObjectOrArrayLiteralAssignmentStatement(
-                expression as ts.AssignmentExpression<ts.Token<ts.SyntaxKind.EqualsToken>>
-                & { left: ts.ObjectLiteralExpression | ts.ArrayLiteralExpression }
-            );
-
-            return this.createImmediatelyInvokedFunctionExpression(
-                statements,
-                tableIdentifier,
-                expression
-            );
-
+            return this.transformObjectOrArrayLiteralAssignmentExpression(expression as
+                ts.AssignmentExpression<ts.Token<ts.SyntaxKind.EqualsToken>>
+                & { left: ts.ObjectLiteralExpression | ts.ArrayLiteralExpression });
         }
 
         if (ts.isPropertyAccessExpression(expression.left) || ts.isElementAccessExpression(expression.left)) {
