@@ -109,3 +109,37 @@ test.each([
         expect(result).toBe(false);
     },
 );
+
+const assignmentBindingPatterns = [
+    { bindingString: "{x: obj.prop}", objectString: "{x: true}", returnVariable: "obj.prop" },
+    {
+        bindingString: "{x: obj.prop = true}",
+        objectString: "{x: undefined}",
+        returnVariable: "obj.prop",
+    },
+    { bindingString: "[{x: obj.prop}]", objectString: "[{x: true}]", returnVariable: "obj.prop" },
+    {
+        bindingString: "{obj: {prop: obj.prop}}",
+        objectString: "{obj: {prop: true}}",
+        returnVariable: "obj.prop",
+    },
+    { bindingString: "{x = true}", objectString: "{}", returnVariable: "x" },
+    {
+        bindingString: "{x: {[2 + 1]: y}}",
+        objectString: "{x: {[2 + 1]: true}}",
+        returnVariable: "y",
+    },
+];
+
+test.each([...assignmentBindingPatterns, ...testCases])(
+    "Test binding pattern expressions (%p)",
+    ({ bindingString, objectString, returnVariable }) => {
+        const result = util.transpileAndExecute(`
+            let x, y, z, foo, bar, obj: { prop: boolean };
+            obj = { prop: false };
+            (${bindingString} = ${objectString})
+            return ${returnVariable};
+        `);
+        expect(result).toBe(true);
+    },
+);
