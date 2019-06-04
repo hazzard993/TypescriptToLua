@@ -103,12 +103,12 @@ export class LuaPrinter {
 
         const mapItems = [];
         for (const lineNr in map) {
-            mapItems.push(`["${lineNr}"] = ${map[lineNr]}`);
+            mapItems.push(`[(${lineNr} + debug.getinfo(1).currentline) .. ""] = ${map[lineNr]}`);
         }
 
         const mapString = "{" + mapItems.join(",") + "}";
 
-        return `__TS__SourceMapTraceBack(debug.getinfo(1).short_src, ${mapString});`;
+        return `__TS__SourceMapTraceBack(debug.getinfo(1).short_src, "${this.sourceFile}", ${mapString});`;
     }
 
     private printImplementation(block: tstl.Block, luaLibFeatures?: Set<LuaLibFeature>, sourceFile = ""): SourceNode {

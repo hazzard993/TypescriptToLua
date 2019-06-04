@@ -137,9 +137,38 @@ export class LuaTransformer {
                     )
                 );
 
-                // return exports
-                statements.push(tstl.createReturnStatement([this.createExportsIdentifier()]));
+                if (this.options.outFile) {
+                    // module = module or {}
+                    statements.unshift(
+                        tstl.createAssignmentStatement(
+                            this.createModulesIdentifier(),
+                            tstl.createBinaryExpression(
+                                this.createModulesIdentifier(),
+                                tstl.createTableExpression(),
+                                tstl.SyntaxKind.OrOperator
+                            )
+                        )
+                    );
+
+                    // module["sourceFile"] = exports
+                    statements.push(
+                        tstl.createAssignmentStatement(
+                            tstl.createTableIndexExpression(
+                                this.createModulesIdentifier(),
+                                tstl.createStringLiteral(this.getImportPath(this.currentSourceFile.fileName.replace(".ts", ""), this.currentSourceFile)),
+                            ),
+                            this.createExportsIdentifier(),
+                        )
+                    );
+                } else {
+                    // return exports
+                    statements.push(tstl.createReturnStatement([this.createExportsIdentifier()]));
+                }
             }
+        }
+
+        if (this.options.outFile) {
+            return [tstl.createBlock([tstl.createDoStatement(statements)], node), this.luaLibFeatureSet];
         }
 
         return [tstl.createBlock(statements, node), this.luaLibFeatureSet];
@@ -445,12 +474,20 @@ export class LuaTransformer {
         }
     }
 
-    private createModuleRequire(moduleSpecifier: ts.StringLiteral, resolveModule = true): tstl.CallExpression {
+    private createModuleRequire(moduleSpecifier: ts.StringLiteral, resolveModule = true): tstl.CallExpression | tstl.TableIndexExpression {
         const modulePathString = resolveModule
             ? this.getImportPath(moduleSpecifier.text.replace(new RegExp('"', "g"), ""), moduleSpecifier)
             : moduleSpecifier.text;
         const modulePath = tstl.createStringLiteral(modulePathString);
-        return tstl.createCallExpression(tstl.createIdentifier("require"), [modulePath], moduleSpecifier);
+
+        if (this.options.outFile) {
+            return tstl.createTableIndexExpression(
+                this.createModulesIdentifier(),
+                modulePath,
+            );
+        } else {
+            return tstl.createCallExpression(tstl.createIdentifier("require"), [modulePath], moduleSpecifier);
+        }
     }
 
     private validateClassElement(element: ts.ClassElement): void {
@@ -4824,6 +4861,10 @@ export class LuaTransformer {
 
     protected createExportsIdentifier(): tstl.Identifier {
         return tstl.createIdentifier("____exports");
+    }
+
+    protected createModulesIdentifier(): tstl.Identifier {
+        return tstl.createIdentifier("____modules");
     }
 
     protected createLocalOrExportedOrGlobalDeclaration(

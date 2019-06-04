@@ -100,7 +100,7 @@ export function transpile({
         try {
             const [luaAst, lualibFeatureSet] = transformer.transformSourceFile(sourceFile);
             if (!options.noEmit && !options.emitDeclarationOnly) {
-                const [lua, sourceMap] = printer.print(luaAst, lualibFeatureSet, sourceFile.fileName);
+                const [lua, sourceMap] = printer.print(luaAst, options.outFile ? undefined : lualibFeatureSet, sourceFile.fileName);
                 updateTranspiledFile(sourceFile.fileName, { luaAst, lua, sourceMap });
             }
         } catch (err) {
@@ -160,6 +160,21 @@ export function transpile({
 
     if (options.noEmit || (options.noEmitOnError && diagnostics.length > 0)) {
         transpiledFiles = [];
+    }
+
+    if (options.outFile) {
+        const lua = transpiledFiles.reduce((luaCode, transpiledFile) => {
+            if (transpiledFile.luaAst && transpiledFile.lua) {
+                luaCode += transpiledFile.lua;
+            }
+            return luaCode;
+        }, "");
+        transpiledFiles = [
+            {
+                fileName: options.outFile,
+                lua
+            }
+        ];
     }
 
     return { diagnostics, transpiledFiles };
