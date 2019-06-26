@@ -168,6 +168,8 @@ export class LuaTransformer {
                 return this.transformImportEqualsDeclaration(node as ts.ImportEqualsDeclaration);
             case ts.SyntaxKind.ClassDeclaration:
                 return this.transformClassDeclaration(node as ts.ClassDeclaration);
+            case ts.SyntaxKind.DebuggerStatement:
+                return this.transformDebuggerStatement(node as ts.DebuggerStatement);
             case ts.SyntaxKind.ModuleDeclaration:
                 return this.transformModuleDeclaration(node as ts.ModuleDeclaration);
             case ts.SyntaxKind.EnumDeclaration:
@@ -770,6 +772,17 @@ export class LuaTransformer {
         this.classStack.pop();
 
         return result;
+    }
+
+    public transformDebuggerStatement(node: ts.DebuggerStatement): StatementVisitResult {
+        const debugTable = tstl.createIdentifier("debug", node);
+        const debugString = tstl.createStringLiteral("debug", node);
+        const callExpression = tstl.createCallExpression(
+            tstl.createTableIndexExpression(debugTable, debugString, node),
+            undefined,
+            node
+        );
+        return tstl.createExpressionStatement(callExpression, node);
     }
 
     protected createClassCreationMethods(

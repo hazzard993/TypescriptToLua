@@ -147,6 +147,8 @@ exports[`Transformation (continueNestedConcurrent) 1`] = `
 end"
 `;
 
+exports[`Transformation (debuggerStatement) 1`] = `"debug.debug()"`;
+
 exports[`Transformation (do) 1`] = `
 "local e = 10
 repeat
