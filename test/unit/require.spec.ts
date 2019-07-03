@@ -74,6 +74,13 @@ test.each([
         options: { rootDir: "./src" },
         throwsError: false,
     },
+    {
+        filePath: "main.ts",
+        usedPath: "./folder/module.spec",
+        expectedPath: "folder.module_spec",
+        options: { rootDir: "." },
+        throwsError: false,
+    },
 ])(
     "require paths root from --baseUrl or --rootDir (%p)",
     ({ filePath, usedPath, expectedPath, options, throwsError }) => {

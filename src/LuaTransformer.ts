@@ -4941,7 +4941,7 @@ export class LuaTransformer {
     }
 
     protected formatPathToLuaPath(filePath: string): string {
-        filePath = filePath.replace(/\.json$/, "");
+        filePath = filePath.replace(/\.json$/, "").replace(/\./g, "_");
         if (process.platform === "win32") {
             // Windows can use backslashes
             filePath = filePath.replace(/\.\\/g, "").replace(/\\/g, ".");

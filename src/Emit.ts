@@ -33,7 +33,7 @@ export function emitTranspiledFiles(options: CompilerOptions, transpiledFiles: T
         if (outFile) {
             outPath = path.isAbsolute(outFile) ? outFile : path.resolve(baseDir, outFile);
         } else {
-            outPath = trimExt(outPath) + ".lua";
+            outPath = trimExt(outPath).replace(/\./g, "_") + ".lua";
         }
 
         outPath = normalizeSlashes(outPath);
