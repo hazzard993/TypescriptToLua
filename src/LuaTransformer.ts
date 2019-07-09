@@ -10,6 +10,10 @@ import { luaKeywords, luaBuiltins } from "./LuaKeywords";
 
 export type StatementVisitResult = tstl.Statement | tstl.Statement[] | undefined;
 export type ExpressionVisitResult = tstl.Expression;
+export type BindingOrAssignmentElementVisitResult = {
+    left: tstl.Expression;
+    initializer?: tstl.Expression;
+};
 export enum ScopeType {
     File = 0x1,
     Function = 0x2,
@@ -1915,125 +1919,6 @@ export class LuaTransformer {
         return undefined;
     }
 
-    public transformVariableDeclaration(statement: ts.VariableDeclaration): StatementVisitResult {
-        if (statement.initializer && statement.type) {
-            // Validate assignment
-            const initializerType = this.checker.getTypeAtLocation(statement.initializer);
-            const varType = this.checker.getTypeFromTypeNode(statement.type);
-            this.validateFunctionAssignment(statement.initializer, initializerType, varType);
-        }
-
-        if (ts.isIdentifier(statement.name)) {
-            // Find variable identifier
-            const identifierName = this.transformIdentifier(statement.name);
-            if (statement.initializer) {
-                const value = this.transformExpression(statement.initializer);
-                return this.createLocalOrExportedOrGlobalDeclaration(identifierName, value, statement);
-            } else {
-                return this.createLocalOrExportedOrGlobalDeclaration(identifierName, undefined, statement);
-            }
-        } else if (ts.isArrayBindingPattern(statement.name) || ts.isObjectBindingPattern(statement.name)) {
-            // Destructuring types
-
-            const statements: tstl.Statement[] = [];
-
-            // For nested bindings and object bindings, fall back to transformBindingPattern
-            if (
-                ts.isObjectBindingPattern(statement.name) ||
-                statement.name.elements.some(elem => !ts.isBindingElement(elem) || !ts.isIdentifier(elem.name))
-            ) {
-                const statements = [];
-                let table: tstl.Identifier;
-                if (statement.initializer !== undefined && ts.isIdentifier(statement.initializer)) {
-                    table = this.transformIdentifier(statement.initializer);
-                } else {
-                    // Contain the expression in a temporary variable
-                    table = tstl.createAnonymousIdentifier();
-                    if (statement.initializer) {
-                        statements.push(
-                            tstl.createVariableDeclarationStatement(
-                                table,
-                                this.transformExpression(statement.initializer)
-                            )
-                        );
-                    }
-                }
-                statements.push(
-                    ...this.statementVisitResultToArray(this.transformBindingPattern(statement.name, table))
-                );
-                return statements;
-            }
-
-            // Disallow ellipsis destruction
-            if (statement.name.elements.some(elem => !ts.isBindingElement(elem) || elem.dotDotDotToken !== undefined)) {
-                throw TSTLErrors.ForbiddenEllipsisDestruction(statement);
-            }
-
-            const vars =
-                statement.name.elements.length > 0
-                    ? this.filterUndefinedAndCast(
-                          statement.name.elements.map(e => this.transformArrayBindingElement(e)),
-                          tstl.isIdentifier
-                      )
-                    : tstl.createAnonymousIdentifier(statement.name);
-
-            if (statement.initializer) {
-                if (tsHelper.isTupleReturnCall(statement.initializer, this.checker)) {
-                    // Don't unpack TupleReturn decorated functions
-                    statements.push(
-                        ...this.createLocalOrExportedOrGlobalDeclaration(
-                            vars,
-                            this.transformExpression(statement.initializer),
-                            statement
-                        )
-                    );
-                } else if (ts.isArrayLiteralExpression(statement.initializer)) {
-                    // Don't unpack array literals
-                    const values =
-                        statement.initializer.elements.length > 0
-                            ? statement.initializer.elements.map(e => this.transformExpression(e))
-                            : tstl.createNilLiteral();
-                    statements.push(...this.createLocalOrExportedOrGlobalDeclaration(vars, values, statement));
-                } else {
-                    // local vars = this.transpileDestructingAssignmentValue(node.initializer);
-                    const initializer = this.createUnpackCall(
-                        this.transformExpression(statement.initializer),
-                        statement.initializer
-                    );
-                    statements.push(...this.createLocalOrExportedOrGlobalDeclaration(vars, initializer, statement));
-                }
-            } else {
-                statements.push(
-                    ...this.createLocalOrExportedOrGlobalDeclaration(vars, tstl.createNilLiteral(), statement)
-                );
-            }
-
-            statement.name.elements.forEach(element => {
-                if (!ts.isOmittedExpression(element) && element.initializer) {
-                    const variableName = this.transformIdentifier(element.name as ts.Identifier);
-                    const identifier = this.addExportToIdentifier(variableName);
-                    statements.push(
-                        tstl.createIfStatement(
-                            tstl.createBinaryExpression(
-                                identifier,
-                                tstl.createNilLiteral(),
-                                tstl.SyntaxKind.EqualityOperator
-                            ),
-                            tstl.createBlock([
-                                tstl.createAssignmentStatement(
-                                    identifier,
-                                    this.transformExpression(element.initializer)
-                                ),
-                            ])
-                        )
-                    );
-                }
-            });
-
-            return statements;
-        }
-    }
-
     public transformVariableStatement(statement: ts.VariableStatement): StatementVisitResult {
         const result: tstl.Statement[] = [];
         statement.declarationList.declarations.forEach(declaration => {
@@ -2794,9 +2679,9 @@ export class LuaTransformer {
             case ts.SyntaxKind.PrefixUnaryExpression:
                 return this.transformPrefixUnaryExpression(expression as ts.PrefixUnaryExpression);
             case ts.SyntaxKind.ArrayLiteralExpression:
-                return this.transformArrayLiteral(expression as ts.ArrayLiteralExpression);
+                return this.transformArrayLiteralExpression(expression as ts.ArrayLiteralExpression);
             case ts.SyntaxKind.ObjectLiteralExpression:
-                return this.transformObjectLiteral(expression as ts.ObjectLiteralExpression);
+                return this.transformObjectLiteralExpression(expression as ts.ObjectLiteralExpression);
             case ts.SyntaxKind.OmittedExpression:
                 return this.transformOmittedExpression(expression as ts.OmittedExpression);
             case ts.SyntaxKind.DeleteExpression:
@@ -2897,7 +2782,7 @@ export class LuaTransformer {
         return this.transformBinaryOperation(left, right, operator, expression);
     }
 
-    public transformBinaryExpression(expression: ts.BinaryExpression): ExpressionVisitResult {
+    public transformBinaryExpression(expression: ts.BinaryExpression): BindingOrAssignmentElementVisitResult {
         const operator = expression.operatorToken.kind;
 
         // Check if this is an assignment token, then handle accordingly
@@ -3065,34 +2950,8 @@ export class LuaTransformer {
             );
         }
 
-        if (ts.isArrayLiteralExpression(expression.left)) {
-            // Destructuring assignment
-            // (function() local ${tmps} = ${right}; ${left} = ${tmps}; return {${tmps}} end)()
-            const left =
-                expression.left.elements.length > 0
-                    ? expression.left.elements.map(e => this.transformExpression(e))
-                    : [tstl.createAnonymousIdentifier(expression.left)];
-            let right: tstl.Expression[];
-            if (ts.isArrayLiteralExpression(expression.right)) {
-                right =
-                    expression.right.elements.length > 0
-                        ? expression.right.elements.map(e => this.transformExpression(e))
-                        : [tstl.createNilLiteral()];
-            } else if (tsHelper.isTupleReturnCall(expression.right, this.checker)) {
-                right = [this.transformExpression(expression.right)];
-            } else {
-                right = [this.createUnpackCall(this.transformExpression(expression.right), expression.right)];
-            }
-            const tmps = left.map((_, i) => tstl.createIdentifier(`____TS_tmp${i}`));
-            const statements: tstl.Statement[] = [
-                tstl.createVariableDeclarationStatement(tmps, right),
-                tstl.createAssignmentStatement(left as tstl.AssignmentLeftHandSideExpression[], tmps),
-            ];
-            return this.createImmediatelyInvokedFunctionExpression(
-                statements,
-                tstl.createTableExpression(tmps.map(t => tstl.createTableFieldExpression(t))),
-                expression
-            );
+        if (ts.isArrayLiteralExpression(expression.left) || ts.isObjectLiteralExpression(expression.left)) {
+            return this.transformDestructuringAssignmentExpression(expression as ts.DestructuringAssignment);
         }
 
         if (ts.isPropertyAccessExpression(expression.left) || ts.isElementAccessExpression(expression.left)) {
@@ -3135,6 +2994,237 @@ export class LuaTransformer {
             );
         }
     }
+
+    protected transformDestructuringAssignmentExpression(node: ts.DestructuringAssignment): tstl.CallExpression {
+        const statements = this.statementVisitResultToArray(this.transformDestructuringAssignment(node));
+        return this.createImmediatelyInvokedFunctionExpression(
+            statements,
+            tstl.createTableExpression(tmps.map(t => tstl.createTableFieldExpression(t))),
+            node
+        );
+    }
+
+    protected transformDestructuringAssignment(node: ts.DestructuringAssignment): StatementVisitResult {
+        if (ts.isArrayBindingPattern(node.left)) {
+            // Destructuring assignment
+            // (function() local ${tmps} = ${right}; ${left} = ${tmps}; return {${tmps}} end)()
+            const left =
+                node.left.elements.length > 0
+                    ? node.left.elements.map(e => this.transformExpression(e))
+                    : [tstl.createAnonymousIdentifier(node.left)];
+            let right: tstl.Expression[];
+            if (ts.isArrayLiteralExpression(node.right)) {
+                right =
+                    node.right.elements.length > 0
+                        ? node.right.elements.map(e => this.transformExpression(e))
+                        : [tstl.createNilLiteral()];
+            } else if (tsHelper.isTupleReturnCall(node.right, this.checker)) {
+                right = [this.transformExpression(node.right)];
+            } else {
+                right = [this.createUnpackCall(this.transformExpression(node.right), node.right)];
+            }
+            const tmps = left.map((_, i) => tstl.createIdentifier(`____TS_tmp${i}`));
+            return [
+                tstl.createVariableDeclarationStatement(tmps, right),
+                tstl.createAssignmentStatement(left as tstl.AssignmentLeftHandSideExpression[], tmps),
+            ];
+        }
+    }
+
+    protected transformObjectDestructuringAssignment(
+        node: ts.ObjectDestructuringAssignment
+    ): BindingOrAssignmentElementVisitResult[] {
+        const left = this.transformBindingOrAssignmentElement(node.left);
+    }
+
+    protected transformArrayDestructuringAssignment(
+        node: ts.ArrayDestructuringAssignment
+    ): BindingOrAssignmentElementVisitResult {}
+
+    protected transformBindingOrAssignmentElement(
+        node: ts.BindingOrAssignmentElement
+    ): BindingOrAssignmentElementVisitResult {
+        switch (node.kind) {
+            case ts.SyntaxKind.VariableDeclaration:
+                return this.transformVariableDeclaration(node);
+            case ts.SyntaxKind.Parameter:
+                return this.transformParameterDeclaration(node);
+            case ts.SyntaxKind.BindingElement:
+                return this.transformBindingElement(node);
+            case ts.SyntaxKind.PropertyAssignment:
+                return this.transformPropertyAssignment(node);
+            case ts.SyntaxKind.ShorthandPropertyAssignment:
+                return this.transformShorthandPropertyAssignment(node);
+            case ts.SyntaxKind.SpreadAssignment:
+                return this.transformSpreadAssignment(node);
+            case ts.SyntaxKind.OmittedExpression:
+                return { left: this.transformOmittedExpression(node) };
+            case ts.SyntaxKind.SpreadElement:
+                return { left: this.transformSpreadElement(node) };
+            case ts.SyntaxKind.ArrayLiteralExpression:
+                return { left: this.transformArrayLiteralExpression(node) };
+            case ts.SyntaxKind.ObjectLiteralExpression:
+                return { left: this.transformObjectLiteralExpression(node) };
+            case ts.SyntaxKind.BinaryExpression:
+                return this.transformBinaryExpression(node);
+            case ts.SyntaxKind.Identifier:
+                return { left: this.transformIdentifier(node) };
+            case ts.SyntaxKind.PropertyAccessExpression:
+                return { left: this.transformPropertyAccessExpression(node) };
+            case ts.SyntaxKind.ElementAccessExpression:
+                return { left: this.transformElementAccessExpression(node) };
+        }
+    }
+
+    protected transformBindingOrAssignmentPattern(
+        node: ts.BindingOrAssignmentPattern
+    ): BindingOrAssignmentElementVisitResult[] {
+        switch (node.kind) {
+            case ts.SyntaxKind.ObjectLiteralExpression:
+                return (node.properties as ts.NodeArray<ts.BindingOrAssignmentElement>).map(element =>
+                    this.transformBindingOrAssignmentElement(element)
+                );
+            case ts.SyntaxKind.ObjectBindingPattern:
+            case ts.SyntaxKind.ArrayBindingPattern:
+            case ts.SyntaxKind.ArrayLiteralExpression:
+                return (node.elements as ts.NodeArray<ts.BindingOrAssignmentElement>).map(element =>
+                    this.transformBindingOrAssignmentElement(element)
+                );
+        }
+    }
+
+    protected transformVariableDeclaration(node: ts.VariableDeclaration): BindingOrAssignmentElementVisitResult {
+        if (node.initializer && node.type) {
+            // Validate assignment
+            const initializerType = this.checker.getTypeAtLocation(node.initializer);
+            const varType = this.checker.getTypeFromTypeNode(node.type);
+            this.validateFunctionAssignment(node.initializer, initializerType, varType);
+        }
+
+        if (ts.isIdentifier(node.name)) {
+            // Find variable identifier
+            const identifierName = this.transformIdentifier(node.name);
+            if (node.initializer) {
+                const value = this.transformExpression(node.initializer);
+                return this.createLocalOrExportedOrGlobalDeclaration(identifierName, value, node);
+            } else {
+                return this.createLocalOrExportedOrGlobalDeclaration(identifierName, undefined, node);
+            }
+        } else if (ts.isArrayBindingPattern(node.name) || ts.isObjectBindingPattern(node.name)) {
+            // Destructuring types
+
+            const statements: tstl.Statement[] = [];
+
+            // For nested bindings and object bindings, fall back to transformBindingPattern
+            if (
+                ts.isObjectBindingPattern(node.name) ||
+                node.name.elements.some(elem => !ts.isBindingElement(elem) || !ts.isIdentifier(elem.name))
+            ) {
+                const statements = [];
+                let table: tstl.Identifier;
+                if (node.initializer !== undefined && ts.isIdentifier(node.initializer)) {
+                    table = this.transformIdentifier(node.initializer);
+                } else {
+                    // Contain the expression in a temporary variable
+                    table = tstl.createAnonymousIdentifier();
+                    if (node.initializer) {
+                        statements.push(
+                            tstl.createVariableDeclarationStatement(
+                                table,
+                                this.transformExpression(node.initializer)
+                            )
+                        );
+                    }
+                }
+                statements.push(
+                    ...this.statementVisitResultToArray(this.transformBindingPattern(node.name, table))
+                );
+                return statements;
+            }
+
+            // Disallow ellipsis destruction
+            if (node.name.elements.some(elem => !ts.isBindingElement(elem) || elem.dotDotDotToken !== undefined)) {
+                throw TSTLErrors.ForbiddenEllipsisDestruction(node);
+            }
+
+            const vars =
+                node.name.elements.length > 0
+                    ? this.filterUndefinedAndCast(
+                          node.name.elements.map(e => this.transformArrayBindingElement(e)),
+                          tstl.isIdentifier
+                      )
+                    : tstl.createAnonymousIdentifier(node.name);
+
+            if (node.initializer) {
+                if (tsHelper.isTupleReturnCall(node.initializer, this.checker)) {
+                    // Don't unpack TupleReturn decorated functions
+                    statements.push(
+                        ...this.createLocalOrExportedOrGlobalDeclaration(
+                            vars,
+                            this.transformExpression(node.initializer),
+                            node
+                        )
+                    );
+                } else if (ts.isArrayLiteralExpression(node.initializer)) {
+                    // Don't unpack array literals
+                    const values =
+                        node.initializer.elements.length > 0
+                            ? node.initializer.elements.map(e => this.transformExpression(e))
+                            : tstl.createNilLiteral();
+                    statements.push(...this.createLocalOrExportedOrGlobalDeclaration(vars, values, node));
+                } else {
+                    // local vars = this.transpileDestructingAssignmentValue(node.initializer);
+                    const initializer = this.createUnpackCall(
+                        this.transformExpression(node.initializer),
+                        node.initializer
+                    );
+                    statements.push(...this.createLocalOrExportedOrGlobalDeclaration(vars, initializer, node));
+                }
+            } else {
+                statements.push(
+                    ...this.createLocalOrExportedOrGlobalDeclaration(vars, tstl.createNilLiteral(), node)
+                );
+            }
+
+            node.name.elements.forEach(element => {
+                if (!ts.isOmittedExpression(element) && element.initializer) {
+                    const variableName = this.transformIdentifier(element.name as ts.Identifier);
+                    const identifier = this.addExportToIdentifier(variableName);
+                    statements.push(
+                        tstl.createIfStatement(
+                            tstl.createBinaryExpression(
+                                identifier,
+                                tstl.createNilLiteral(),
+                                tstl.SyntaxKind.EqualityOperator
+                            ),
+                            tstl.createBlock([
+                                tstl.createAssignmentStatement(
+                                    identifier,
+                                    this.transformExpression(element.initializer)
+                                ),
+                            ])
+                        )
+                    );
+                }
+            });
+
+            return statements;
+        }
+    }
+
+    protected transformParameterDeclaration(node: ts.ParameterDeclaration): BindingOrAssignmentElementVisitResult {
+        
+    }
+
+    protected transformBindingElement(node: ts.BindingElement): BindingOrAssignmentElementVisitResult {}
+
+    protected transformPropertyAssignment(node: ts.PropertyAssignment): BindingOrAssignmentElementVisitResult {}
+
+    protected transformShorthandPropertyAssignment(
+        node: ts.ShorthandPropertyAssignment
+    ): BindingOrAssignmentElementVisitResult {}
+
+    protected transformSpreadAssignment(node: ts.SpreadAssignment): BindingOrAssignmentElementVisitResult {}
 
     protected transformCompoundAssignmentExpression(
         expression: ts.Expression,
@@ -3546,7 +3636,7 @@ export class LuaTransformer {
         }
     }
 
-    public transformArrayLiteral(expression: ts.ArrayLiteralExpression): ExpressionVisitResult {
+    public transformArrayLiteralExpression(expression: ts.ArrayLiteralExpression): ExpressionVisitResult {
         const values = expression.elements.map(e =>
             tstl.createTableFieldExpression(this.transformExpression(e), undefined, e)
         );
@@ -3554,7 +3644,7 @@ export class LuaTransformer {
         return tstl.createTableExpression(values, expression);
     }
 
-    public transformObjectLiteral(expression: ts.ObjectLiteralExpression): ExpressionVisitResult {
+    public transformObjectLiteralExpression(expression: ts.ObjectLiteralExpression): ExpressionVisitResult {
         const properties: tstl.TableFieldExpression[] = [];
         // Add all property assignments
         expression.properties.forEach(element => {

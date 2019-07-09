@@ -751,6 +751,19 @@ export function getRawLiteral(node: ts.LiteralLikeNode): string {
     return text;
 }
 
+/**
+ * Returns true if there are what would considered nested binding patterns.
+ */
+export function isFlatArrayDestructure(node: ts.ArrayLiteralExpression | ts.ArrayBindingPattern): boolean {
+    if (ts.isArrayLiteralExpression(node)) {
+        return !node.elements.some(
+            element => ts.isArrayLiteralExpression(element) || ts.isObjectLiteralExpression(element)
+        );
+    } else if (ts.isArrayBindingPattern(node)) {
+        return !node.elements.some(element => ts.isArrayBindingPattern(element) || ts.isObjectBindingPattern(element));
+    }
+}
+
 export function isFirstDeclaration(node: ts.VariableDeclaration, checker: ts.TypeChecker): boolean {
     const symbol = checker.getSymbolAtLocation(node.name);
     if (!symbol) {

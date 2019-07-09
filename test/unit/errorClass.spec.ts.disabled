@@ -1,0 +1,39 @@
+import { transpileAndExecute } from "../util";
+
+test("Error exists", () => {
+    expect(transpileAndExecute(`return typeof Error !== undefined`)).toEqual(true);
+});
+
+test.each([
+    ['throw "error";', "error"],
+    ["throw new Error();", "Error"],
+    ['throw new Error("error");', "Error: error"],
+])("Error thrown from '%s' equals '%s'", (tsStr, expectedError) => {
+    expect(() => transpileAndExecute(tsStr)).toThrowError(expectedError);
+});
+
+test("Error can be extended", () => {
+    expect(() =>
+        transpileAndExecute(`
+            class ExtendedError extends Error {}
+            throw new ExtendedError();
+        `)
+    ).toThrowError("ExtendedError");
+});
+
+test("Extended error instanceof use", () => {
+    expect(() =>
+        transpileAndExecute(`
+            class ExtendedError extends Error {}
+            let returnValue = false;
+            try {
+                throw new ExtendedError();
+            } catch (e) {
+                if (e instanceof ExtendedError) {
+                    returnValue = true;
+                }
+            }
+            return returnValue;
+        `)
+    ).toBe(true);
+});
