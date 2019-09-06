@@ -3,6 +3,7 @@ import * as resolve from "resolve";
 import * as ts from "typescript";
 import { CompilerOptions, TransformerImport } from "./CompilerOptions";
 import * as diagnosticFactories from "./diagnostics";
+import { declarationTransformerFactory } from "./DeclarationTransformer";
 
 export function getCustomTransformers(
     program: ts.Program,
@@ -18,6 +19,7 @@ export function getCustomTransformers(
     const transformersFromOptions = loadTransformersFromOptions(program, diagnostics);
     return {
         afterDeclarations: [
+            declarationTransformerFactory,
             ...(transformersFromOptions.afterDeclarations || []),
             ...(customTransformers.afterDeclarations || []),
         ],
