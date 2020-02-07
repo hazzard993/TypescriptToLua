@@ -24,6 +24,14 @@ function isMultiReturningCallExpression(context: TransformationContext, expressi
     return Boolean(signature?.getReturnType().aliasSymbol?.declarations?.some(isMultiHelperDeclaration));
 }
 
+export function isMultiHelperSubType(context: TransformationContext, type: ts.Type): boolean {
+    if (type.isUnionOrIntersection()) {
+        return type.types.some(t => isMultiHelperSubType(context, t));
+    }
+
+    return Boolean(type.symbol?.getDeclarations()?.map(isMultiHelperDeclaration));
+}
+
 export function isMultiHelperNode(context: TransformationContext, node: ts.Node): boolean {
     const type = context.checker.getTypeAtLocation(node);
     return Boolean(type.symbol?.declarations?.some(isMultiHelperDeclaration));

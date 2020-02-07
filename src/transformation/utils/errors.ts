@@ -147,3 +147,6 @@ export const UnsupportedVarDeclaration = (node: ts.Node) =>
 
 export const InvalidMultiHelperFunctionUse = (node: ts.Node) =>
     new TranspileError("Invalid multi() function use.", node);
+
+export const InvalidMultiReturnSubType = (node: ts.Node) =>
+    new TranspileError("MultiReturn cannot be sub-typed.", node);

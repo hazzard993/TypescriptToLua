@@ -4,13 +4,13 @@ import { assertNever } from "../../utils";
 import { FunctionVisitor, TransformationContext } from "../context";
 import { isTupleReturnCall } from "../utils/annotations";
 import { validateAssignment } from "../utils/assignment-validation";
-import { UnsupportedKind, UnsupportedVarDeclaration } from "../utils/errors";
+import { UnsupportedKind, UnsupportedVarDeclaration, InvalidMultiReturnSubType } from "../utils/errors";
 import { addExportToIdentifier } from "../utils/export";
 import { createLocalOrExportedOrGlobalDeclaration, createUnpackCall } from "../utils/lua-ast";
 import { LuaLibFeature, transformLuaLibFunction } from "../utils/lualib";
 import { transformIdentifier } from "./identifier";
 import { transformPropertyName } from "./literal";
-import { transformMultiHelperVariableDeclaration } from "../helpers/multi";
+import { transformMultiHelperVariableDeclaration, isMultiHelperSubType } from "../helpers/multi";
 
 export function transformArrayBindingElement(
     context: TransformationContext,
@@ -174,6 +174,14 @@ export function transformBindingVariableDeclaration(
             statements.push(...createLocalOrExportedOrGlobalDeclaration(context, vars, values, initializer));
         } else {
             // local vars = this.transpileDestructingAssignmentValue(node.initializer);
+            if (ts.isCallExpression(initializer)) {
+                const signature = context.checker.getResolvedSignature(initializer);
+                const type = signature?.getReturnType();
+                if (type && signature && isMultiHelperSubType(context, type)) {
+                    const node = signature.declaration?.type ? signature.declaration.type : initializer;
+                    throw InvalidMultiReturnSubType(node);
+                }
+            }
             const unpackedInitializer = createUnpackCall(
                 context,
                 context.transformExpression(initializer),
