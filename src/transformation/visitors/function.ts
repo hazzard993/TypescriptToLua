@@ -277,5 +277,6 @@ export const transformFunctionDeclaration: FunctionVisitor<ts.FunctionDeclaratio
         scope.functionDefinitions.set(name.symbolId, functionInfo);
     }
 
-    return createLocalOrExportedOrGlobalDeclaration(context, name, functionExpression, node);
+    const result = createLocalOrExportedOrGlobalDeclaration(context, name, functionExpression, node);
+    return result;
 };

@@ -81,6 +81,10 @@ export enum SyntaxKind {
     BitwiseRightShiftOperator,
     BitwiseLeftShiftOperator,
     BitwiseNotOperator, // Unary
+
+    // Comments
+    MultiLineCommendTrivia,
+    SingleLineCommentTrivia,
 }
 
 // TODO maybe name this PrefixUnary? not sure it makes sense to do so, because all unary ops in Lua are prefix
@@ -129,6 +133,8 @@ export interface TextRange {
 
 export interface Node extends TextRange {
     kind: SyntaxKind;
+    leadingComments?: Comment[];
+    trailingComments?: Comment[];
 }
 
 export function createNode(kind: SyntaxKind, tsOriginal?: ts.Node): Node {
@@ -183,6 +189,34 @@ function getSourcePosition(sourceNode: ts.Node): TextRange | undefined {
 
 export function getOriginalPos(node: Node): TextRange {
     return { line: node.line, column: node.column };
+}
+
+export interface Comment {
+    kind: SyntaxKind.MultiLineCommendTrivia | SyntaxKind.SingleLineCommentTrivia;
+    text: string;
+    hasTrailingNewLine: boolean;
+}
+
+export function addSyntheticLeadingComment(
+    node: Node,
+    kind: SyntaxKind.MultiLineCommendTrivia | SyntaxKind.SingleLineCommentTrivia,
+    text: string,
+    hasTrailingNewLine = false
+): void {
+    const leadingComments = node.leadingComments ? node.leadingComments : [];
+    leadingComments.push({ kind, text, hasTrailingNewLine });
+    node.leadingComments = leadingComments;
+}
+
+export function addSyntheticTrailingComment(
+    node: Node,
+    kind: SyntaxKind.MultiLineCommendTrivia | SyntaxKind.SingleLineCommentTrivia,
+    text: string,
+    hasTrailingNewLine = false
+): void {
+    const trailingComments = node.trailingComments ? node.trailingComments : [];
+    trailingComments.push({ kind, text, hasTrailingNewLine });
+    node.trailingComments = trailingComments;
 }
 
 export interface Block extends Node {

@@ -3,6 +3,7 @@ import { CompilerOptions, LuaTarget } from "../../CompilerOptions";
 import * as lua from "../../LuaAST";
 import { unwrapVisitorResult } from "../utils/lua-ast";
 import { ExpressionLikeNode, ObjectVisitor, StatementLikeNode, VisitorMap } from "./visitors";
+import { addLeadingCommentsToNode, addTrailingCommentsToNode } from "../visitors/comments";
 
 export interface EmitResolver {
     isValueAliasDeclaration(node: ts.Node): boolean;
@@ -52,6 +53,10 @@ export class TransformationContext {
 
         const visitor = this.currentNodeVisitors.pop()!;
         const result = unwrapVisitorResult(visitor.transform(node, this));
+        if (!this.options.removeComments) {
+            addLeadingCommentsToNode(this, result[0], node);
+            addTrailingCommentsToNode(this, result[result.length - 1], node);
+        }
 
         this.currentNodeVisitors = previousNodeVisitors;
 

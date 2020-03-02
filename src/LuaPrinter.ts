@@ -268,6 +268,10 @@ export class LuaPrinter {
         return result || false;
     }
 
+    public printComment(comment: lua.Comment): string {
+        return `--${comment.text}`;
+    }
+
     protected printStatementArray(statements: lua.Statement[]): SourceChunk[] {
         const statementNodes: SourceNode[] = [];
         for (const [index, statement] of statements.entries()) {
@@ -283,7 +287,24 @@ export class LuaPrinter {
                 statementNodes[index - 1].add(";");
             }
 
-            statementNodes.push(node);
+            if (statement.leadingComments || statement.trailingComments) {
+                const leading: string[] = [];
+                statement.leadingComments?.forEach(comment => {
+                    if (comment.hasTrailingNewLine) {
+                        statementNodes.push(this.createSourceNode(statement, this.printComment(comment)));
+                    } else {
+                        leading.push(this.printComment(comment));
+                    }
+                });
+                const trailing = statement.trailingComments?.map(comment => this.printComment(comment)) ?? [];
+                const nodeWithTrailingTrivia = this.createSourceNode(
+                    statement,
+                    this.joinChunks(" ", [...leading, node, ...trailing])
+                );
+                statementNodes.push(nodeWithTrailingTrivia);
+            } else {
+                statementNodes.push(node);
+            }
 
             if (lua.isReturnStatement(statement)) break;
         }
